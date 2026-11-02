@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it, vi } from 'vitest';
 import { isValidTarget } from '../../../src/state/store';
-import { getSettings, listPendingDeletes } from '../../../src/storage/db';
+import { getSettings, listPendingDeletes, listSamples } from '../../../src/storage/db';
 import { makeSampleRecord } from '../../helpers/samples';
 import { makeStore } from '../../helpers/store';
 
@@ -32,6 +32,16 @@ describe('store', () => {
     expect(store.usableSamples.value).toHaveLength(3);
     expect(store.outliers.value).toHaveLength(4);
     expect(store.outliers.value[3]).toBe(false);
+  });
+
+  it('refuses to add an eleventh sample', async () => {
+    const store = await makeStore([61, 62, 63, 64, 65, 66, 67, 68, 69, 70]);
+    const spy = vi.fn();
+    store.onLocalChange(spy);
+    await expect(store.addSample(makeSampleRecord(71))).rejects.toThrow('Sample limit reached');
+    expect((await listSamples(store.db)).map((s) => s.id)).not.toContain('sample-71');
+    expect(store.samples.value).toHaveLength(10);
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it('persists settings', async () => {

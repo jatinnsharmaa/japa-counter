@@ -82,6 +82,7 @@ export function createStore(db: JapaDB): Store {
       await saveSettings(db, settings.value);
     },
     async addSample(rec) {
+      if ((await listSamples(db)).length >= MAX_SAMPLES) throw new Error('Sample limit reached');
       await putSample(db, rec);
       await refreshSamples();
       notify();

@@ -226,6 +226,24 @@ describe('syncSamples under races', () => {
     expect(await listSamples(db)).toHaveLength(10);
     expect(parseManifest(drive.manifestText()!).samples).toHaveLength(12);
   });
+
+  it('re-reads the local count before each download, so a sample recorded meanwhile keeps the cap', async () => {
+    const rec = makeSampleRecord(132);
+    const drive = new FakeDrive();
+    drive.seedSamples(12, rec.wav, rec);
+    const db = await fresh();
+    let recorded = false;
+    drive.onCall = async (op, id) => {
+      if (op === 'downloadFile' && id?.startsWith('SEED') && !recorded) {
+        recorded = true;
+        await putSample(db, makeSampleRecord(133));
+      }
+    };
+    const report = await syncSamples({ db, drive, isOnline: () => true, maxLocalSamples: 10 });
+    expect(await listSamples(db)).toHaveLength(10);
+    expect(report.downloaded).toBe(9);
+    expect(report.notDownloaded).toBe(3);
+  });
 });
 
 describe('startAutoSync', () => {

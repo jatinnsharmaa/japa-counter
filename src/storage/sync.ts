@@ -116,10 +116,10 @@ async function runSync({ db, drive, shouldContinue = () => true, maxLocalSamples
   }
   const manifest = mergeManifests(remote, { version: 1, samples: local.filter((s) => s.synced && s.driveFileId).map(entryFromSample) }, dropped);
 
-  let localCount = local.length;
   for (const e of manifest.samples) {
     if (localIds.has(e.sampleId) || !remoteFileIds.has(e.fileId)) continue;
-    if (localCount >= maxLocalSamples) {
+    // Re-read the count each time: a sample may have been recorded while a download was in flight.
+    if ((await listSamples(db)).length >= maxLocalSamples) {
       report.notDownloaded++;
       continue;
     }
@@ -134,7 +134,6 @@ async function runSync({ db, drive, shouldContinue = () => true, maxLocalSamples
       report.unreadable++;
       continue;
     }
-    localCount++;
     report.downloaded++;
   }
 

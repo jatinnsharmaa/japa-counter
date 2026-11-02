@@ -18,6 +18,9 @@ type View =
   | { kind: 'failed' }
   | { kind: 'error'; message: string };
 
+const CAP_MESSAGE = '10 samples is the most the counter uses. Delete one to record another.';
+const INTRO = 'You’ll chant the mantra once. Recording stops when you go quiet.';
+
 function micErrorMessage(err: unknown): string {
   const name = err instanceof DOMException || err instanceof Error ? err.name : '';
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'Microphone blocked. Allow it from the address bar, then try again.';
@@ -163,7 +166,13 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
     await begin();
   };
   const onKeep = async (sample: SampleRecord) => {
-    await store.addSample(sample);
+    try {
+      await store.addSample(sample);
+    } catch {
+      await store.refreshSamples().catch(() => undefined);
+      setView({ kind: 'error', message: CAP_MESSAGE });
+      return;
+    }
     setView({ kind: 'idle', message: `Sample ${store.samples.value.length} saved.` });
   };
 
@@ -206,13 +215,10 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
       return (
         <div class="recorder">
           <button type="button" onClick={onRecord} disabled={atCap}>Record a sample</button>
-          <p class="hint">
-            {atCap
-              ? '10 samples is the most the counter uses. Delete one to record another.'
-              : 'You’ll chant the mantra once. Recording stops when you go quiet.'}
-          </p>
+          <p class="hint">{atCap ? CAP_MESSAGE : INTRO}</p>
           {view.kind === 'idle' && view.message && <p class="hint" role="status">{view.message}</p>}
-          {view.kind === 'error' && <p class="hint" role="alert">{view.message}</p>}
+          {/* The cap hint above already says it once the store is full. */}
+          {view.kind === 'error' && !(atCap && view.message === CAP_MESSAGE) && <p class="hint" role="alert">{view.message}</p>}
         </div>
       );
   }

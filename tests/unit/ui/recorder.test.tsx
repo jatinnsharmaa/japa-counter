@@ -6,7 +6,8 @@ import { COUNTDOWN_FRAMES } from '../../../src/recording/autostop';
 import { StoreContext, type Store } from '../../../src/state/store';
 import { Recorder } from '../../../src/ui/Recorder';
 import { FakeEngine } from '../../helpers/fake-engine';
-import { makeSamplePcm } from '../../helpers/samples';
+import { listSamples, putSample } from '../../../src/storage/db';
+import { makeSamplePcm, makeSampleRecord } from '../../helpers/samples';
 import { makeStore } from '../../helpers/store';
 
 function setup(store: Store, engine = new FakeEngine()) {
@@ -177,6 +178,20 @@ describe('Recorder', () => {
     setup(store);
     expect(screen.getByRole('button', { name: 'Record a sample' })).toHaveProperty('disabled', true);
     expect(screen.getByText('10 samples is the most the counter uses. Delete one to record another.')).toBeTruthy();
+  });
+
+  it('Keep explains the cap when the store already holds 10 samples', async () => {
+    const store = await makeStore([61, 62, 63, 64, 65, 66, 67, 68, 69]);
+    await store.markMicExplained();
+    const { engine } = setup(store);
+    fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
+    await waitFor(() => expect(engine.sentTypes()).toEqual(['rec-start']));
+    await runTake(engine);
+    await putSample(store.db, makeSampleRecord(70)); // e.g. a Drive sync restored one meanwhile
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    await waitFor(() => expect(screen.getByText('10 samples is the most the counter uses. Delete one to record another.')).toBeTruthy());
+    expect(await listSamples(store.db)).toHaveLength(10);
+    expect(screen.queryByText(/saved\./)).toBeNull();
   });
 
   it('opens the engine once even if Record is pressed twice while it is opening', async () => {
