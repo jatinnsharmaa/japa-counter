@@ -9,6 +9,7 @@ export default defineConfig({
   test: {
     include: ['tests/unit/**/*.test.{ts,tsx}', 'tests/harness/**/*.test.ts'],
     environment: 'node',
+    setupFiles: ['tests/setup.ts'],
     testTimeout: 20_000,
   },
 });

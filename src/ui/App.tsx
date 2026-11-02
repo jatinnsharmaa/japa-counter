@@ -1,3 +1,10 @@
-export function App() {
-  return <main class="setup"><h1>Japa Counter</h1></main>;
+import { StoreContext, type Store } from '../state/store';
+import { Setup } from './Setup';
+
+export function App({ store }: { store: Store }) {
+  return (
+    <StoreContext.Provider value={store}>
+      <Setup />
+    </StoreContext.Provider>
+  );
 }

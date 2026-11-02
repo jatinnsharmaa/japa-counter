@@ -1,0 +1,42 @@
+:root {
+  --setup-bg: #f5f4f2;
+  --setup-fg: #1c1b19;
+  --setup-muted: #6b665e;
+  --setup-line: #d9d5ce;
+  --session-bg: #000000;
+  --mantra: #e6dccb;
+  --count: #6f675c;
+  --count-bright: #a39a8c;
+  --timer: #4a443c;
+  --font-body: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-mantra: 'Tiro Devanagari Sanskrit', 'Noto Serif Devanagari', serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --setup-bg: #0a0a0a; --setup-fg: #e8e4dc; --setup-muted: #8d877d; --setup-line: #2a2824; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--setup-bg); color: var(--setup-fg); font: 16px/1.5 var(--font-body); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+.setup { max-width: 34rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; display: flex; flex-direction: column; gap: 2.25rem; }
+.setup h2 { font-size: 0.95rem; font-weight: 500; margin: 0 0 0.6rem; color: var(--setup-muted); }
+.setup h3 { font-size: 0.95rem; font-weight: 500; margin: 1.5rem 0 0.4rem; color: var(--setup-muted); }
+.hint { color: var(--setup-muted); font-size: 0.9rem; margin: 0.4rem 0 0; }
+.mantra-input, .mantra-roman-input, #target {
+  width: 100%; background: transparent; color: inherit; border: 0; border-bottom: 1px solid var(--setup-line);
+  padding: 0.35rem 0; font: inherit;
+}
+.mantra-input { font-family: var(--font-mantra); font-size: 1.5rem; resize: vertical; }
+.target-row { display: flex; gap: 0.75rem; align-items: baseline; }
+#target { width: 8rem; }
+button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--setup-line); border-radius: 4px; padding: 0.4rem 0.9rem; cursor: pointer; }
+button:disabled { opacity: 0.4; cursor: default; }
+button.link { border: 0; padding: 0; text-decoration: underline; color: var(--setup-muted); align-self: flex-start; }
+button.start { align-self: flex-start; padding: 0.6rem 2rem; border-color: currentColor; }
+.preset[aria-pressed='true'] { border-color: currentColor; }
+.settings fieldset { border: 0; padding: 0; margin: 0; }
+.settings legend { color: var(--setup-muted); font-size: 0.95rem; margin-bottom: 0.4rem; }
+.radio, .checkbox { display: block; padding: 0.15rem 0; }
+.history { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: var(--setup-muted); }
