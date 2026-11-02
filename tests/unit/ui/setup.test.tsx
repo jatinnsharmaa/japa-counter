@@ -2,9 +2,11 @@
 import 'fake-indexeddb/auto';
 import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import { describe, expect, it } from 'vitest';
+import { createDriveController, DriveContext } from '../../../src/state/drive-controller';
 import { StoreContext, type Store } from '../../../src/state/store';
 import { getSettings } from '../../../src/storage/db';
 import { Setup } from '../../../src/ui/Setup';
+import { FakeDrive } from '../../helpers/fake-drive';
 import { FakeEngine } from '../../helpers/fake-engine';
 import { makeSampleRecord } from '../../helpers/samples';
 import { makeStore } from '../../helpers/store';
@@ -32,6 +34,22 @@ describe('Setup', () => {
     expect(start).toHaveProperty('disabled', false);
     fireEvent.click(start);
     expect(store.screen.value).toBe('session');
+  });
+
+  it('holds Start while a Drive sync is finishing', async () => {
+    const store = await makeStore([41, 42, 43]);
+    const drive = createDriveController(store, { clientId: 'cid', makeDrive: () => new FakeDrive(), events: new EventTarget() });
+    drive.status.value = 'syncing';
+    render(
+      <StoreContext.Provider value={store}>
+        <DriveContext.Provider value={drive}><Setup openEngine={async () => new FakeEngine()} /></DriveContext.Provider>
+      </StoreContext.Provider>,
+    );
+    expect(screen.getByRole('button', { name: 'Start' })).toHaveProperty('disabled', true);
+    expect(screen.getByText('Finishing Drive sync…')).toBeTruthy();
+    drive.status.value = 'idle';
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start' })).toHaveProperty('disabled', false));
+    expect(screen.queryByText('Finishing Drive sync…')).toBeNull();
   });
 
   it('counts only usable samples for the hint and Start', async () => {

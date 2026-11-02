@@ -66,7 +66,8 @@ export function createGoogleTokenProvider(
 
   return async ({ forceRefresh, interactive }) => {
     if (!forceRefresh && token && now() < token.expiresAt) return token.value;
-    if (!interactive && !granted) throw new Error('Drive needs a click to reconnect');
+    // Only a click may open the Google popup; background syncs use a cached token or stop.
+    if (!interactive) throw new Error('Drive needs a click to reconnect');
     return request();
   };
 }

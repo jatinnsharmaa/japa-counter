@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import {
   addHistory, clearPendingDelete, DEFAULT_SETTINGS, deleteSample, getMeta, getSettings, listHistory,
-  listPendingDeletes, listSamples, openDb, putSample, saveSettings, setMeta,
+  listPendingDeletes, listSamples, markSynced, openDb, putSample, saveSettings, setMeta,
 } from '../../../src/storage/db';
 import { makeSampleRecord } from '../../helpers/samples';
 
@@ -30,6 +30,18 @@ describe('db', () => {
     expect(await listPendingDeletes(db)).toEqual(['file-13']);
     await clearPendingDelete(db, 'file-13');
     expect(await listPendingDeletes(db)).toEqual([]);
+  });
+
+  it('markSynced records the Drive file only while the sample still exists', async () => {
+    const db = await fresh();
+    await putSample(db, makeSampleRecord(14));
+    expect(await markSynced(db, 'sample-14', 'file-14')).toBe(true);
+    expect((await listSamples(db))[0]).toMatchObject({ id: 'sample-14', driveFileId: 'file-14', synced: true });
+    await deleteSample(db, 'sample-14');
+    await clearPendingDelete(db, 'file-14');
+    expect(await markSynced(db, 'sample-14', 'file-14b')).toBe(false);
+    expect(await listSamples(db)).toEqual([]);
+    expect(await listPendingDeletes(db)).toEqual(['file-14b']); // the orphan upload is queued for deletion
   });
 
   it('returns default settings, then saved ones', async () => {

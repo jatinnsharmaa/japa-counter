@@ -43,6 +43,24 @@ describe('createGoogleTokenProvider', () => {
     expect(f.requests).toEqual([]);
   });
 
+  it('never opens a popup in the background once the token has expired', async () => {
+    let t = 0;
+    const f = fakeGis(() => ({ access_token: 'x', expires_in: 3600 }));
+    const get = createGoogleTokenProvider('cid', { loadGis: async () => f.gis, now: () => t });
+    await get({ forceRefresh: false, interactive: true });
+    t = 3_600_000;
+    await expect(get({ forceRefresh: false, interactive: false })).rejects.toThrow('Drive needs a click to reconnect');
+    expect(f.requests).toEqual(['consent']);
+  });
+
+  it('never opens a popup for a forced background refresh', async () => {
+    const f = fakeGis(() => ({ access_token: 'x', expires_in: 3600 }));
+    const get = createGoogleTokenProvider('cid', { loadGis: async () => f.gis, now: () => 0 });
+    await get({ forceRefresh: false, interactive: true });
+    await expect(get({ forceRefresh: true, interactive: false })).rejects.toThrow('Drive needs a click to reconnect');
+    expect(f.requests).toEqual(['consent']);
+  });
+
   it('rejects on an OAuth error', async () => {
     const f = fakeGis(() => ({ error: 'access_denied' }));
     const get = createGoogleTokenProvider('cid', { loadGis: async () => f.gis });

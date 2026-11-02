@@ -88,6 +88,19 @@ export async function deleteSample(db: JapaDB, id: string): Promise<void> {
   await tx.done;
 }
 
+/**
+ * Records a finished upload in one transaction. If the sample was deleted while it uploaded, nothing is
+ * re-created: the uploaded file is queued for deletion instead and this returns false.
+ */
+export async function markSynced(db: JapaDB, id: string, driveFileId: string): Promise<boolean> {
+  const tx = db.transaction(['samples', 'pendingDeletes'], 'readwrite');
+  const rec = await tx.objectStore('samples').get(id);
+  if (rec) await tx.objectStore('samples').put({ ...rec, driveFileId, synced: true });
+  else await tx.objectStore('pendingDeletes').put({ driveFileId });
+  await tx.done;
+  return rec !== undefined;
+}
+
 export async function getSettings(db: JapaDB): Promise<Settings> {
   return { ...DEFAULT_SETTINGS, ...(await db.get('settings', 'settings')) };
 }

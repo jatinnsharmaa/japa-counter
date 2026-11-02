@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { OpenEngine } from '../audio/protocol';
+import { useDrive } from '../state/drive-controller';
 import { isValidTarget, MIN_SAMPLES, useStore } from '../state/store';
 import { Recorder } from './Recorder';
 import { SampleRow } from './SampleRow';
@@ -15,6 +16,8 @@ function hintFor(n: number): string | null {
 
 export function Setup({ openEngine }: { openEngine: OpenEngine }) {
   const store = useStore();
+  const drive = useDrive();
+  const driveSyncing = drive?.status.value === 'syncing';
   const s = store.settings.value;
   const [targetText, setTargetText] = useState(String(s.target));
   const [showSettings, setShowSettings] = useState(false);
@@ -62,7 +65,8 @@ export function Setup({ openEngine }: { openEngine: OpenEngine }) {
         </div>
       </section>
 
-      <button type="button" class="start" disabled={!store.canStart.value} onClick={() => (store.screen.value = 'session')}>Start</button>
+      <button type="button" class="start" disabled={!store.canStart.value || driveSyncing} onClick={() => (store.screen.value = 'session')}>Start</button>
+      {driveSyncing && <p class="hint">Finishing Drive sync…</p>}
 
       <button type="button" class="link" aria-expanded={showSettings} onClick={() => setShowSettings(!showSettings)}>Settings</button>
       {showSettings && <Settings />}
