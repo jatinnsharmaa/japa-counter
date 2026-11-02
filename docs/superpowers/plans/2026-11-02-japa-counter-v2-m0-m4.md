@@ -2841,7 +2841,8 @@ git commit -m "feat(audio): engine worker core, AudioWorklet capture and mic glu
     getMeta<T>(db, key): Promise<T | undefined>; setMeta(db, key, value): Promise<void>
     listPendingDeletes(db): Promise<string[]>; clearPendingDelete(db, driveFileId): Promise<void>
     ```
-  - `samples.ts`: `buildSampleFromRecording(pcm16k: Float32Array, floor: number, now?: number, id?: string): SampleRecord | null`, `rebuildFromWav(base: Pick<SampleRecord, 'id' | 'createdAt' | 'wav' | 'floor' | 'synced' | 'driveFileId'>): SampleRecord | null`, `ensureCurrentFeatures(db: JapaDB): Promise<number>`, `trimmedWav(s: SampleRecord): ArrayBuffer`
+  - `samples.ts`: `buildSampleFromRecording(pcm16k: Float32Array, floor: number, now?: number, id?: string): SampleRecord | null`, `rebuildFromWav(base: Pick<SampleRecord, 'id' | 'createdAt' | 'wav' | 'floor' | 'synced' | 'driveFileId'>): SampleRecord | null`, `ensureCurrentFeatures(db: JapaDB): Promise<{ updated: number; failed: string[] }>`, `isUsable(s: SampleRecord): boolean` (true when `s.engineVersion === ENGINE_VERSION`), `trimmedWav(s: SampleRecord): ArrayBuffer`
+  - **Fix round 1 (user-approved):** `ensureCurrentFeatures` rebuilds each record independently (try/catch per record). A record whose rebuild returns null or throws is left on disk unchanged (old `engineVersion`), listed in `failed`, and is therefore not `isUsable`: later tasks exclude it from counting and its row shows `Couldn’t update this sample. Record it again.`
   - `tests/helpers/samples.ts`: `makeSamplePcm(seed: number): { pcm: Float32Array; floor: number }`, `makeSampleRecord(seed: number, createdAt?: number): SampleRecord`
 
 Key rule: features are always extracted from the **16-bit quantised** PCM (encode → decode), so re-extraction from the stored WAV reproduces them exactly.
@@ -3225,10 +3226,11 @@ git commit -m "feat(storage): IndexedDB store, sample records and feature re-ext
       readonly history: Signal<HistoryEntry[]>;
       readonly screen: Signal<'setup' | 'session'>;
       readonly micExplained: Signal<boolean>;
-      readonly calibration: ReadonlySignal<Calibration | null>;  // null below MIN_SAMPLES
-      readonly outliers: ReadonlySignal<boolean[]>;               // one flag per sample
+      readonly usableSamples: ReadonlySignal<SampleRecord[]>;     // samples with current-engine features (isUsable)
+      readonly calibration: ReadonlySignal<Calibration | null>;  // from usableSamples; null below MIN_SAMPLES usable
+      readonly outliers: ReadonlySignal<boolean[]>;               // one flag per entry of samples (false for unusable ones)
       readonly threshold: ReadonlySignal<number | null>;          // base × strictness
-      readonly sampleFloor: ReadonlySignal<number>;               // mean sample floor, −60 when none
+      readonly sampleFloor: ReadonlySignal<number>;               // mean floor of usableSamples, −60 when none
       readonly canStart: ReadonlySignal<boolean>;
       load(): Promise<void>;                                      // runs ensureCurrentFeatures first
       updateSettings(patch: Partial<Settings>): Promise<void>;
@@ -3455,7 +3457,7 @@ import {
   addHistory, DEFAULT_SETTINGS, deleteSample, getMeta, getSettings, listHistory, listSamples, putSample, saveSettings, setMeta,
   type HistoryEntry, type JapaDB, type SampleRecord, type Settings,
 } from '../storage/db';
-import { ensureCurrentFeatures } from '../storage/samples';
+import { ensureCurrentFeatures, isUsable } from '../storage/samples';
 
 export const MIN_SAMPLES = 3;
 export const MAX_SAMPLES = 10;
@@ -3473,6 +3475,7 @@ export interface Store {
   readonly history: Signal<HistoryEntry[]>;
   readonly screen: Signal<'setup' | 'session'>;
   readonly micExplained: Signal<boolean>;
+  readonly usableSamples: ReadonlySignal<SampleRecord[]>;
   readonly calibration: ReadonlySignal<Calibration | null>;
   readonly outliers: ReadonlySignal<boolean[]>;
   readonly threshold: ReadonlySignal<number | null>;
@@ -3496,11 +3499,16 @@ export function createStore(db: JapaDB): Store {
   const micExplained = signal(false);
   const listeners = new Set<() => void>();
 
-  const calibration = computed(() => (samples.value.length >= MIN_SAMPLES ? calibrate(samples.value.map((s) => s.take)) : null));
-  const outliers = computed(() => (calibration.value ? flagOutliers(calibration.value.perAvg) : samples.value.map(() => false)));
+  const usableSamples = computed(() => samples.value.filter(isUsable));
+  const calibration = computed(() => (usableSamples.value.length >= MIN_SAMPLES ? calibrate(usableSamples.value.map((s) => s.take)) : null));
+  const outliers = computed(() => {
+    const flags = calibration.value ? flagOutliers(calibration.value.perAvg) : [];
+    const byId = new Map(usableSamples.value.map((s, i) => [s.id, flags[i] ?? false]));
+    return samples.value.map((s) => byId.get(s.id) ?? false);
+  });
   const threshold = computed(() => (calibration.value ? liveThreshold(calibration.value, settings.value.strictness) : null));
   const sampleFloor = computed(() =>
-    samples.value.length ? samples.value.reduce((a, s) => a + s.floor, 0) / samples.value.length : DEFAULT_SAMPLE_FLOOR,
+    usableSamples.value.length ? usableSamples.value.reduce((a, s) => a + s.floor, 0) / usableSamples.value.length : DEFAULT_SAMPLE_FLOOR,
   );
   const canStart = computed(() => threshold.value !== null && isValidTarget(settings.value.target));
 
@@ -3510,7 +3518,7 @@ export function createStore(db: JapaDB): Store {
   const notify = () => listeners.forEach((l) => l());
 
   return {
-    db, settings, samples, history, screen, micExplained, calibration, outliers, threshold, sampleFloor, canStart,
+    db, settings, samples, history, screen, micExplained, usableSamples, calibration, outliers, threshold, sampleFloor, canStart,
     refreshSamples,
     async load() {
       await ensureCurrentFeatures(db);
@@ -3787,7 +3795,7 @@ Flow (spec "Recording flow", Locked):
 9. Mic errors: `NotAllowedError` → `Microphone blocked. Allow it from the address bar, then try again.`; `NotFoundError` → `No microphone found.`; other → `Couldn’t open the microphone.`
 10. With 10 samples, the record button is disabled and the line reads `10 samples is the most the counter uses. Delete one to record another.`
 
-Sample row (spec "Sample list row"): `Sample 3   2.6 s   ▶ / ❚❚   Download   Delete   ✓ synced` plus, when flagged, `Sounds different from the others. Consider recording it again.` Play button accessible names `Play sample 3` / `Pause sample 3`. Download is a link with `download="japa-sample-3.wav"` to the stored WAV. Delete asks first: `Delete` → `Yes, delete` / `Cancel`. `✓ synced` shows when `sample.synced`.
+Sample row (spec "Sample list row"): a row whose sample is not `isUsable` (F16 rebuild failed) also shows `Couldn’t update this sample. Record it again.` `Sample 3   2.6 s   ▶ / ❚❚   Download   Delete   ✓ synced` plus, when flagged, `Sounds different from the others. Consider recording it again.` Play button accessible names `Play sample 3` / `Pause sample 3`. Download is a link with `download="japa-sample-3.wav"` to the stored WAV. Delete asks first: `Delete` → `Yes, delete` / `Cancel`. `✓ synced` shows when `sample.synced`.
 
 - [ ] **Step 1: Extend test setup with media stubs**
 
@@ -3998,6 +4006,11 @@ describe('SampleRow', () => {
     expect(onDelete).toHaveBeenCalledOnce();
   });
 
+  it('flags a sample the current engine could not rebuild', () => {
+    render(<ul><SampleRow sample={{ ...sample, engineVersion: 0 }} index={0} flagged={false} onDelete={() => {}} /></ul>);
+    expect(screen.getByText('Couldn’t update this sample. Record it again.')).toBeTruthy();
+  });
+
   it('shows the synced tick and the "sounds different" note', () => {
     render(<ul><SampleRow sample={{ ...sample, synced: true }} index={0} flagged={true} onDelete={() => {}} /></ul>);
     expect(screen.getByText('✓ synced')).toBeTruthy();
@@ -4057,7 +4070,7 @@ export function useClipPlayer(wav: ArrayBuffer): { playing: boolean; toggle(): v
 ```tsx
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { SampleRecord } from '../storage/db';
-import { trimmedWav } from '../storage/samples';
+import { isUsable, trimmedWav } from '../storage/samples';
 import { useClipPlayer } from './useClipPlayer';
 
 interface Props {
@@ -4092,6 +4105,7 @@ export function SampleRow({ sample, index, flagged, onDelete }: Props) {
       )}
       {sample.synced && <span class="synced">✓ synced</span>}
       {flagged && <p class="hint flag">Sounds different from the others. Consider recording it again.</p>}
+      {!isUsable(sample) && <p class="hint flag">Couldn’t update this sample. Record it again.</p>}
     </li>
   );
 }
@@ -4743,7 +4757,7 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
       });
       e.send({
         type: 'session-start',
-        takes: store.samples.value.map((s) => s.take),
+        takes: store.usableSamples.value.map((s) => s.take),
         thr: store.threshold.value ?? 0,
         sampleFloor: store.sampleFloor.value,
       });
