@@ -106,4 +106,52 @@ describe('AutoStop', () => {
     expect(a.feed(-40).level).toBeCloseTo(0.5);
     expect(a.feed(0).level).toBe(1);
   });
+
+  it('a loud transient mid-chant does not end the take', () => {
+    const a = afterCountdown(-60);
+    const ticks = [...feed(a, -30, 100), ...feed(a, 0, 15), ...feed(a, -30, 100)];
+    expect(ticks.every((t) => t.stopped === null)).toBe(true);
+    expect(stopIndex(feed(a, -60, 60))).toBe(39);
+  });
+
+  it('a loud opening syllable does not end the take', () => {
+    const a = afterCountdown(-60);
+    const ticks = [...feed(a, -5, 30), ...feed(a, -35, 150)];
+    expect(ticks.every((t) => t.stopped === null)).toBe(true);
+    expect(stopIndex(feed(a, -60, 60))).toBe(39);
+  });
+
+  it('floor drift is bounded', () => {
+    const a = afterCountdown(-60);
+    feed(a, -120, 60);
+    expect(a.floor).toBeGreaterThanOrEqual(-70);
+  });
+
+  it('non-finite frames still advance the countdown', () => {
+    const a = new AutoStop();
+    const ticks = [...feed(a, NaN, 10), ...feed(a, -60, 140)];
+    expect(ticks[149].phase).toBe('chant');
+    expect(ticks[148].phase).toBe('countdown');
+    expect(a.floor).toBe(-60);
+  });
+
+  it('non-finite frames in the chant keep the 15 s limit aligned', () => {
+    const a = afterCountdown();
+    const ticks = feed(a, NaN, MAX_CHANT_FRAMES);
+    expect(stopIndex(ticks)).toBe(MAX_CHANT_FRAMES - 1);
+  });
+
+  it('a 4-frame loud blip does not reset the quiet wait, 5 frames do', () => {
+    const a = afterCountdown();
+    feed(a, -20, 100);
+    feed(a, -60, 20);
+    feed(a, -20, 4);
+    expect(stopIndex(feed(a, -60, 60))).toBe(19);
+
+    const b = afterCountdown();
+    feed(b, -20, 100);
+    feed(b, -60, 20);
+    feed(b, -20, 5);
+    expect(stopIndex(feed(b, -60, 60))).toBe(39);
+  });
 });
