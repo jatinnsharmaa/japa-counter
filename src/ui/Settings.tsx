@@ -1,6 +1,7 @@
 import { STRICTNESS_STEPS } from '../engine/calibrate';
 import { formatDuration } from '../session/session-logic';
 import { useStore } from '../state/store';
+import { DriveSection } from './DriveSection';
 
 const STRICTNESS_LABELS = ['Strictest', 'Very strict', 'Stricter', 'Strict (default)', 'Relaxed', 'Most relaxed'];
 const dateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -24,6 +25,8 @@ export function Settings() {
         <input type="checkbox" checked={s.bell} onChange={(e) => void store.updateSettings({ bell: e.currentTarget.checked })} />
         Soft bell every 108
       </label>
+      <h3>Google Drive</h3>
+      <DriveSection />
       <h3>History</h3>
       {store.history.value.length === 0 ? (
         <p class="hint">No sessions yet.</p>
