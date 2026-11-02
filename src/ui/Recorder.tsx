@@ -14,7 +14,7 @@ type View =
   | { kind: 'countdown'; n: number }
   | { kind: 'chant' }
   | { kind: 'finishing'; chant: boolean }
-  | { kind: 'review'; sample: SampleRecord }
+  | { kind: 'review'; sample: SampleRecord; message?: string }
   | { kind: 'failed' }
   | { kind: 'error'; message: string };
 
@@ -36,7 +36,7 @@ function LevelLine({ level }: { level: number }) {
   );
 }
 
-function Review({ sample, onKeep, onRedo }: { sample: SampleRecord; onKeep: () => void; onRedo: () => void }) {
+function Review({ sample, message, onKeep, onRedo }: { sample: SampleRecord; message?: string; onKeep: () => void; onRedo: () => void }) {
   const wav = useMemo(() => trimmedWav(sample), [sample]);
   const peaks = useMemo(() => waveformPeaks(decodeWav(wav).pcm, 120), [wav]);
   const max = Math.max(1e-6, ...peaks);
@@ -54,6 +54,7 @@ function Review({ sample, onKeep, onRedo }: { sample: SampleRecord; onKeep: () =
         <button type="button" onClick={onKeep}>Keep</button>
         <button type="button" onClick={onRedo}>Redo</button>
       </div>
+      {message && <p class="hint" role="alert">{message}</p>}
     </div>
   );
 }
@@ -168,9 +169,13 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
   const onKeep = async (sample: SampleRecord) => {
     try {
       await store.addSample(sample);
-    } catch {
-      await store.refreshSamples().catch(() => undefined);
-      setView({ kind: 'error', message: CAP_MESSAGE });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Sample limit reached') {
+        await store.refreshSamples().catch(() => undefined);
+        setView({ kind: 'error', message: CAP_MESSAGE });
+      } else {
+        setView({ kind: 'review', sample, message: 'Couldn’t save this sample. Try again.' });
+      }
       return;
     }
     setView({ kind: 'idle', message: `Sample ${store.samples.value.length} saved.` });
@@ -203,7 +208,7 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
         </div>
       );
     case 'review':
-      return <Review sample={view.sample} onKeep={() => void onKeep(view.sample)} onRedo={() => void begin()} />;
+      return <Review sample={view.sample} message={view.message} onKeep={() => void onKeep(view.sample)} onRedo={() => void begin()} />;
     case 'failed':
       return (
         <div class="recorder">

@@ -194,6 +194,24 @@ describe('Recorder', () => {
     expect(screen.queryByText(/saved\./)).toBeNull();
   });
 
+  it('Keep stays on the review with a retry message when saving fails for another reason', async () => {
+    const store = await makeStore();
+    await store.markMicExplained();
+    const { engine } = setup(store);
+    fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
+    await waitFor(() => expect(engine.sentTypes()).toEqual(['rec-start']));
+    await runTake(engine);
+    const add = vi.spyOn(store, 'addSample').mockRejectedValueOnce(new DOMException('quota', 'QuotaExceededError'));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('Couldn’t save this sample. Try again.'));
+    expect(screen.getByRole('button', { name: 'Keep' })).toBeTruthy();
+    expect(screen.queryByText('10 samples is the most the counter uses. Delete one to record another.')).toBeNull();
+    add.mockRestore();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    await waitFor(() => expect(store.samples.value).toHaveLength(1));
+    expect(screen.getByText('Sample 1 saved.')).toBeTruthy();
+  });
+
   it('opens the engine once even if Record is pressed twice while it is opening', async () => {
     const store = await makeStore();
     await store.markMicExplained();

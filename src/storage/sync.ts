@@ -9,7 +9,7 @@ export interface SyncReport {
   deleted: number;
   /** Manifest entries with a Drive file that were not restored because the local cap was reached. */
   notDownloaded: number;
-  /** Drive samples skipped because their file could not be downloaded or rebuilt (corrupt, wrong rate, no chant). */
+  /** Drive samples skipped because their downloaded file could not be decoded or rebuilt (corrupt, wrong rate, no chant). */
   unreadable: number;
   skipped: boolean;
   /** True when shouldContinue turned false and the sync stopped before its next Drive call. */
@@ -124,9 +124,10 @@ async function runSync({ db, drive, shouldContinue = () => true, maxLocalSamples
       continue;
     }
     step();
-    // One bad file must not stop the rest of the sync: skip it and report it.
+    // Network, timeout and auth failures end the sync (it retries later); only a file that downloads
+    // but can't be decoded or rebuilt is skipped and reported, so one bad file can't stop the rest.
+    const wav = await drive.downloadFile(e.fileId);
     try {
-      const wav = await drive.downloadFile(e.fileId);
       const rec = rebuildFromWav({ id: e.sampleId, createdAt: e.createdAt, wav, floor: e.floor, synced: true, driveFileId: e.fileId });
       if (!rec) throw new Error('No chant found in the sample');
       await putSample(db, rec);

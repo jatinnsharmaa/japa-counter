@@ -205,4 +205,24 @@ describe('drive controller', () => {
     expect(store.samples.value).toHaveLength(2);
     expect(c.unreadable.value).toBe(1);
   });
+
+  it('pauses on a sample download that fails, instead of reporting it unreadable', async () => {
+    const store = await makeStore();
+    const rec = makeSampleRecord(125);
+    const drive = new FakeDrive();
+    drive.seedSamples(2, rec.wav, rec);
+    const c = createDriveController(store, { clientId: 'cid', makeDrive: () => drive, isOnline: () => true, events: new EventTarget() });
+    await c.syncNow();
+    drive.files.set('SEED2', { name: 'seed-2.wav', folderId: drive.folderId, body: rec.wav });
+    const m = JSON.parse(drive.manifestText()!) as { version: 1; samples: Record<string, unknown>[] };
+    m.samples.push({ ...m.samples[0], sampleId: 'seed-2', fileId: 'SEED2' });
+    drive.files.set('MANIFEST', { ...drive.files.get('MANIFEST')!, body: JSON.stringify(m) });
+    drive.onCall = (op, id) => {
+      if (op === 'downloadFile' && id === 'SEED2') throw new TypeError('Failed to fetch');
+    };
+    await c.syncNow();
+    expect(c.status.value).toBe('error');
+    expect(c.message.value).toBe('Drive sync paused. Use Sync now to retry.');
+    expect(c.unreadable.value).toBe(0);
+  });
 });

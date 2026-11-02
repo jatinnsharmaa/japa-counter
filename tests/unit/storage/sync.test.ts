@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it, vi } from 'vitest';
 import { deleteSample, getSample, listPendingDeletes, listSamples, openDb, putSample } from '../../../src/storage/db';
+import { DriveError } from '../../../src/storage/drive';
 import { parseManifest } from '../../../src/storage/manifest';
 import { startAutoSync, syncSamples } from '../../../src/storage/sync';
 import { FakeDrive } from '../../helpers/fake-drive';
@@ -86,6 +87,21 @@ describe('syncSamples', () => {
     expect(report.unreadable).toBe(1);
     expect((await listSamples(b)).map((s) => s.id)).toEqual(['sample-141']);
     expect(parseManifest(drive.manifestText()!).samples).toHaveLength(2);
+  });
+
+  it('ends with an error when a sample download fails, without counting it as unreadable', async () => {
+    const rec = makeSampleRecord(143);
+    const drive = new FakeDrive();
+    drive.seedSamples(3, rec.wav, rec);
+    drive.onCall = (op, id) => {
+      if (op === 'downloadFile' && id === 'SEED1') throw new DriveError(0, 'Drive request timed out');
+    };
+    const db = await fresh();
+    const err = await syncSamples({ db, drive, isOnline: () => true }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(DriveError);
+    expect(drive.calls.filter((c) => c === 'downloadFile')).toHaveLength(3); // manifest, SEED0, SEED1: nothing after the failure
+    expect(drive.calls).not.toContain('uploadFile');
+    expect((await listSamples(db)).map((s) => s.id)).toEqual(['seed-0']);
   });
 
   it('restores the valid entries of a manifest with a malformed entry', async () => {
