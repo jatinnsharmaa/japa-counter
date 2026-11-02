@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { StoreContext, type Store } from '../../../src/state/store';
 import { getSettings } from '../../../src/storage/db';
 import { Setup } from '../../../src/ui/Setup';
+import { makeSampleRecord } from '../../helpers/samples';
 import { makeStore } from '../../helpers/store';
 
 const renderSetup = (store: Store) => render(<StoreContext.Provider value={store}><Setup /></StoreContext.Provider>);
@@ -30,6 +31,28 @@ describe('Setup', () => {
     expect(start).toHaveProperty('disabled', false);
     fireEvent.click(start);
     expect(store.screen.value).toBe('session');
+  });
+
+  it('counts only usable samples for the hint and Start', async () => {
+    const store = await makeStore([41, 42, 43]);
+    await store.addSample({ ...makeSampleRecord(44), engineVersion: 0 });
+    renderSetup(store);
+    expect(screen.getByText('Ready to start. 6 to 8 samples work best.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start' })).toHaveProperty('disabled', false);
+  });
+
+  it('asks for more samples when unusable ones would reach 3', async () => {
+    const store = await makeStore([41, 42]);
+    await store.addSample({ ...makeSampleRecord(43), engineVersion: 0 });
+    renderSetup(store);
+    expect(screen.getByText('Record at least 3 samples to start. 6 to 8 work best.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start' })).toHaveProperty('disabled', true);
+  });
+
+  it('shows no hint with 6 usable samples', async () => {
+    renderSetup(await makeStore([41, 42, 43, 44, 45, 46]));
+    expect(screen.queryByText(/Record at least 3 samples/)).toBeNull();
+    expect(screen.queryByText(/Ready to start/)).toBeNull();
   });
 
   it('presets set and persist the target', async () => {

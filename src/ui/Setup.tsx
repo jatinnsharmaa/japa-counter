@@ -15,7 +15,7 @@ export function Setup() {
   const s = store.settings.value;
   const [targetText, setTargetText] = useState(String(s.target));
   const [showSettings, setShowSettings] = useState(false);
-  const hint = hintFor(store.samples.value.length);
+  const hint = hintFor(store.usableSamples.value.length);
 
   const setTarget = (text: string) => {
     setTargetText(text);
