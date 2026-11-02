@@ -22,4 +22,12 @@ async function boot() {
   render(<App store={store} openEngine={openAudioEngine} drive={drive} />, document.getElementById('app')!);
 }
 
-void boot();
+boot().catch((err: unknown) => {
+  console.error(err);
+  render(
+    <main class="setup">
+      <p class="hint" role="alert">Japa Counter couldn’t start: storage is unavailable in this browser.</p>
+    </main>,
+    document.getElementById('app')!,
+  );
+});
