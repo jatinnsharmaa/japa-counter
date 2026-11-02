@@ -15,6 +15,12 @@ describe('SampleRow', () => {
     expect(link.getAttribute('download')).toBe('japa-sample-3.wav');
   });
 
+  it('keeps the name, duration and controls apart in the row text', () => {
+    render(<ul><SampleRow sample={sample} index={0} flagged={false} onDelete={() => {}} /></ul>);
+    const text = screen.getByTestId('sample-row').textContent ?? '';
+    expect(text).toMatch(new RegExp(`^Sample 1\\s+${sample.durationSec.toFixed(1).replace('.', '\\.')} s\\s+▶\\s+Download\\s+Delete$`));
+  });
+
   it('play toggles to pause', async () => {
     render(<ul><SampleRow sample={sample} index={0} flagged={false} onDelete={() => {}} /></ul>);
     fireEvent.click(screen.getByRole('button', { name: 'Play sample 1' }));

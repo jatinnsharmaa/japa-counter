@@ -29,19 +29,20 @@ export function SampleRow({ sample, index, flagged, onDelete }: Props) {
 
   return (
     <li class="sample-row" data-testid="sample-row">
-      <span class="sample-name">Sample {n}</span>
-      <span class="sample-dur">{sample.durationSec.toFixed(1)} s</span>
-      {usable && <ClipButton sample={sample} n={n} />}
-      <a href={downloadUrl} download={`japa-sample-${n}.wav`}>Download</a>
+      {/* Explicit spaces keep the row's text readable (copy, screen readers); flex layout ignores them. */}
+      <span class="sample-name">Sample {n}</span>{' '}
+      <span class="sample-dur">{sample.durationSec.toFixed(1)} s</span>{' '}
+      {usable && <><ClipButton sample={sample} n={n} />{' '}</>}
+      <a href={downloadUrl} download={`japa-sample-${n}.wav`}>Download</a>{' '}
       {confirming ? (
         <span class="confirm">
-          <button type="button" onClick={onDelete}>Yes, delete</button>
+          <button type="button" onClick={onDelete}>Yes, delete</button>{' '}
           <button type="button" onClick={() => setConfirming(false)}>Cancel</button>
         </span>
       ) : (
         <button type="button" class="link" onClick={() => setConfirming(true)}>Delete</button>
       )}
-      {sample.synced && <span class="synced">✓ synced</span>}
+      {sample.synced && <> <span class="synced">✓ synced</span></>}
       {flagged && <p class="hint flag">Sounds different from the others. Consider recording it again.</p>}
       {!usable && <p class="hint flag">Couldn’t update this sample. Record it again.</p>}
     </li>
