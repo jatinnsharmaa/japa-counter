@@ -78,14 +78,15 @@ You need [Node.js](https://nodejs.org) 22 or newer and Google Chrome.
 **The first time**, in a terminal:
 
 ```bash
-cd ~/Code/Personal/"Japa Counter"
+git clone https://github.com/jatinnsharmaa/japa-counter.git
+cd japa-counter
 npm install
 ```
 
 **Every time you want to chant**, in a terminal:
 
 ```bash
-cd ~/Code/Personal/"Japa Counter"
+cd japa-counter  # or wherever you cloned it
 npm run dev
 ```
 

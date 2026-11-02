@@ -9,7 +9,8 @@ Requirements: Node.js 22+ (see `.nvmrc`), npm, Google Chrome on a laptop.
 First time:
 
 ```bash
-cd ~/Code/Personal/"Japa Counter"
+git clone https://github.com/jatinnsharmaa/japa-counter.git
+cd japa-counter
 npm install
 npx playwright install chromium   # only needed for the browser tests
 ```
@@ -17,7 +18,7 @@ npx playwright install chromium   # only needed for the browser tests
 Every time:
 
 ```bash
-cd ~/Code/Personal/"Japa Counter"
+cd japa-counter  # or wherever you cloned it
 npm run dev
 ```
 
