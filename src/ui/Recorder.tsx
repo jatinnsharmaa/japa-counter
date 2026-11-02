@@ -101,11 +101,11 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
     } else if (msg.type === 'rec-pcm') {
       autoRef.current = null;
       stoppingRef.current = false;
-      if (!auto.reachedChant || auto.floor === null) {
+      if (!auto.reachedChant || auto.countdownFloor === null) {
         setView({ kind: 'idle' });
         return;
       }
-      const rec = buildSampleFromRecording(msg.pcm.subarray(auto.chantStartSample), auto.floor);
+      const rec = buildSampleFromRecording(msg.pcm.subarray(auto.chantStartSample), auto.countdownFloor);
       setView(rec ? { kind: 'review', sample: rec } : { kind: 'failed' });
     }
   };

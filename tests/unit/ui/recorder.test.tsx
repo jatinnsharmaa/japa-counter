@@ -78,6 +78,23 @@ describe('Recorder', () => {
     expect(openEngine).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the countdown median as the sample floor, not the drifted chant-phase floor', async () => {
+    const store = await makeStore();
+    await store.markMicExplained();
+    const { engine } = setup(store);
+    fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
+    await waitFor(() => expect(engine.sentTypes()).toEqual(['rec-start']));
+    await frames(engine, -60, COUNTDOWN_FRAMES);
+    await frames(engine, -68, 30); // quieter than the countdown: the live floor drifts down
+    await frames(engine, -20, 100);
+    await frames(engine, -68, 40);
+    expect(engine.sentTypes()).toContain('rec-stop');
+    await act(() => engine.emit({ type: 'rec-pcm', pcm: recordingPcm() }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    await waitFor(() => expect(store.samples.value).toHaveLength(1));
+    expect(store.samples.value[0].floor).toBe(-60);
+  });
+
   it('Redo goes straight back to the countdown', async () => {
     const store = await makeStore();
     await store.markMicExplained();

@@ -25,6 +25,17 @@ describe('AutoStop', () => {
     expect(a.chantStartSample).toBe(150 * 320);
   });
 
+  it('exposes the countdown floor, unchanged by quieter chant-phase frames', () => {
+    const a = new AutoStop();
+    feed(a, -62, 60);
+    expect(a.countdownFloor).toBeNull();
+    feed(a, -58, 90);
+    expect(a.countdownFloor).toBe(-58);
+    feed(a, -80, 30);
+    expect(a.floor).toBeLessThan(-58);
+    expect(a.countdownFloor).toBe(-58);
+  });
+
   it('does not stop before any speech is heard', () => {
     const a = afterCountdown();
     expect(feed(a, -60, 300).every((t) => t.stopped === null)).toBe(true);

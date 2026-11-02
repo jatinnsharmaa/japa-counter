@@ -26,7 +26,7 @@ export class AutoStop {
   readonly chantStartSample = COUNTDOWN_FRAMES * HOP;
   private readonly countdownDbs: number[] = [];
   private countdownFrames = 0;
-  private countdownFloor = 0;
+  private _countdownFloor: number | null = null;
   private _floor: number | null = null;
   private _phase: RecPhase = 'countdown';
   private _reachedChant = false;
@@ -37,8 +37,14 @@ export class AutoStop {
   private readonly speechDbs: number[] = []; // smoothed dB of voiced chant frames, kept sorted
   private smooth: number | null = null;
 
+  /** Live floor: starts at the countdown median and may drift down during the chant. */
   get floor(): number | null {
     return this._floor;
+  }
+
+  /** The countdown median, measured once when the countdown ends (null before); this is the stored sample floor. */
+  get countdownFloor(): number | null {
+    return this._countdownFloor;
   }
 
   get phase(): RecPhase {
@@ -56,8 +62,8 @@ export class AutoStop {
       this.countdownFrames++;
       if (finite) this.countdownDbs.push(db);
       if (this.countdownFrames >= COUNTDOWN_FRAMES) {
-        this.countdownFloor = this.countdownDbs.length ? median(this.countdownDbs) : -60;
-        this._floor = this.countdownFloor;
+        this._countdownFloor = this.countdownDbs.length ? median(this.countdownDbs) : -60;
+        this._floor = this._countdownFloor;
         this._phase = 'chant';
         this._reachedChant = true;
       }
@@ -66,7 +72,7 @@ export class AutoStop {
     let floor = this._floor as number;
     // A non-finite frame still occupies its 20 ms slot: treat it as a quiet frame at the floor.
     if (!finite) db = floor;
-    else if (db < floor) floor = this._floor = Math.max(this.countdownFloor - FLOOR_DROP_MAX_DB, 0.9 * floor + 0.1 * db);
+    else if (db < floor) floor = this._floor = Math.max((this._countdownFloor as number) - FLOOR_DROP_MAX_DB, 0.9 * floor + 0.1 * db);
     this.chantFrames++;
     this.smooth = this.smooth === null ? db : 0.8 * this.smooth + 0.2 * db;
     if (db > floor + VOICED_DB) {
