@@ -3320,6 +3320,15 @@ describe('store', () => {
     expect(store.sampleFloor.value).toBeCloseTo(store.samples.value.reduce((a, s) => a + s.floor, 0) / 3);
   });
 
+  it('leaves samples without current-engine features out of calibration', async () => {
+    const store = await makeStore([31, 32, 33]);
+    await store.addSample({ ...makeSampleRecord(35), engineVersion: 0 });
+    expect(store.samples.value).toHaveLength(4);
+    expect(store.usableSamples.value).toHaveLength(3);
+    expect(store.outliers.value).toHaveLength(4);
+    expect(store.outliers.value[3]).toBe(false);
+  });
+
   it('persists settings', async () => {
     const store = await makeStore();
     await store.updateSettings({ target: 1008 });
