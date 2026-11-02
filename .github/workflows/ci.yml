@@ -15,5 +15,5 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npm run test:harness --if-present -- --passWithNoTests
+      - run: npm run test:harness
       - run: npm run build
