@@ -12,15 +12,19 @@ First time:
 git clone https://github.com/jatinnsharmaa/japa-counter.git
 cd japa-counter
 npm install
-npx playwright install chromium   # only needed for the browser tests
+npx playwright install chromium
 ```
+
+The last line is only needed if you want to run the browser tests.
 
 Every time:
 
 ```bash
-cd japa-counter  # or wherever you cloned it
+cd japa-counter
 npm run dev
 ```
+
+If you cloned it somewhere else, `cd` into that folder instead.
 
 Open **http://localhost:5173** in Chrome. Stop the server with Ctrl + C.
 

@@ -86,9 +86,11 @@ npm install
 **Every time you want to chant**, in a terminal:
 
 ```bash
-cd japa-counter  # or wherever you cloned it
+cd japa-counter
 npm run dev
 ```
+
+If you cloned it somewhere else, `cd` into that folder instead.
 
 Then open **http://localhost:5173** in Chrome. Always use this same address so Chrome remembers that you allowed the microphone, and your samples, settings and history are still there.
 
