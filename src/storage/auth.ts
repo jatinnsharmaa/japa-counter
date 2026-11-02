@@ -20,27 +20,37 @@ export interface GoogleOAuth2 {
   }): { requestAccessToken(o?: { prompt?: string }): void };
 }
 
-let gisPromise: Promise<GoogleOAuth2> | null = null;
+let gisLoad: { promise: Promise<GoogleOAuth2>; settled: boolean } | null = null;
 
 /** Loads Google Identity Services, the only third-party script the app allows. */
 export function loadGis(): Promise<GoogleOAuth2> {
-  gisPromise ??= new Promise((resolve, reject) => {
+  if (gisLoad) return gisLoad.promise;
+  const load = { settled: false } as { promise: Promise<GoogleOAuth2>; settled: boolean };
+  gisLoad = load;
+  load.promise = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = GIS_SRC;
     s.async = true;
     const fail = () => {
-      gisPromise = null;
+      load.settled = true;
+      if (gisLoad === load) gisLoad = null;
       reject(new Error('Could not load Google sign-in'));
     };
     s.onload = () => {
       const oauth2 = (window as unknown as { google?: { accounts?: { oauth2?: GoogleOAuth2 } } }).google?.accounts?.oauth2;
-      if (oauth2) resolve(oauth2);
-      else fail();
+      if (!oauth2) return fail();
+      load.settled = true;
+      resolve(oauth2);
     };
     s.onerror = fail;
     document.head.appendChild(s);
   });
-  return gisPromise;
+  return load.promise;
+}
+
+/** Drops a script load that has not finished, so the next sign-in starts a fresh one instead of waiting on it. */
+function forgetPendingGis(): void {
+  if (gisLoad && !gisLoad.settled) gisLoad = null;
 }
 
 export function createGoogleTokenProvider(
@@ -75,7 +85,10 @@ export function createGoogleTokenProvider(
   const requestWithTimeout = async (): Promise<string> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timedOut = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error('Google sign-in timed out')), timeoutMs);
+      timer = setTimeout(() => {
+        forgetPendingGis();
+        reject(new Error('Google sign-in timed out'));
+      }, timeoutMs);
     });
     try {
       return await Promise.race([request(), timedOut]);

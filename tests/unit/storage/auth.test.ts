@@ -97,4 +97,19 @@ describe('loadGis', () => {
     (window as { google?: unknown }).google = { accounts: { oauth2 } };
     await expect(loadGis()).resolves.toBe(oauth2);
   });
+
+  it('forgets a stuck script load when sign-in times out, so the next Connect loads it again', async () => {
+    vi.resetModules(); // fresh module state: no script load cached by earlier tests
+    const auth = await import('../../../src/storage/auth');
+    let loads = 0;
+    vi.spyOn(document.head, 'appendChild').mockImplementation(<T extends Node>(node: T) => {
+      if (++loads > 1) queueMicrotask(() => (node as unknown as HTMLScriptElement).onload?.(new Event('load')));
+      return node; // the first load never finishes
+    });
+    const get = auth.createGoogleTokenProvider('cid', { tokenTimeoutMs: 20 });
+    await expect(get({ forceRefresh: false, interactive: true })).rejects.toThrow(/timed out/);
+    (window as { google?: unknown }).google = { accounts: { oauth2: fakeGis(() => ({ access_token: 'tok', expires_in: 3600 })).gis } };
+    await expect(get({ forceRefresh: false, interactive: true })).resolves.toBe('tok');
+    expect(loads).toBe(2);
+  });
 });
