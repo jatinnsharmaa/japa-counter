@@ -135,6 +135,10 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
             setChimed(true);
             end();
           }
+        } else if (msg.type === 'error') {
+          if (st.ended) return;
+          setFailed(true);
+          end();
         }
       });
       e.send({

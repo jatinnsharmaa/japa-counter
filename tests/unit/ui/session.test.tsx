@@ -159,6 +159,17 @@ describe('Session', () => {
     expect(onExit).toHaveBeenCalledOnce();
   });
 
+  it('ends with the mic message when the engine reports an error', async () => {
+    const { engine, root, onExit } = await start(108);
+    await act(() => engine.emit({ type: 'session-ready', floor: -60 }));
+    await act(() => engine.emit({ type: 'error', message: 'worker crashed' }));
+    expect(root.dataset.phase).toBe('done');
+    expect(screen.getByTestId('summary').textContent).toBe('Microphone unavailable. Press any key to go back.');
+    expect(engine.sentTypes()).toContain('session-stop');
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(onExit).toHaveBeenCalledOnce();
+  });
+
   it('still opens the engine when requestFullscreen returns undefined or throws', async () => {
     const original = HTMLElement.prototype.requestFullscreen;
     try {

@@ -11,7 +11,9 @@ export type FromEngine =
   | { type: 'frame'; db: number }
   | { type: 'rec-pcm'; pcm: Float32Array }
   | { type: 'session-ready'; floor: number }
-  | { type: 'count'; te: number };
+  | { type: 'count'; te: number }
+  /** The engine worker failed (uncaught error or an undeliverable message); the handle is unusable. */
+  | { type: 'error'; message: string };
 
 export interface EngineHandle {
   readonly ctx: AudioContext | null;

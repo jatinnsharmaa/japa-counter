@@ -88,7 +88,23 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
     engineRef.current?.send({ type: 'rec-stop' });
   };
 
+  /** The engine failed: release it so the next Record opens the mic afresh. */
+  const dropEngine = () => {
+    unsubRef.current?.();
+    unsubRef.current = null;
+    void engineRef.current?.close();
+    engineRef.current = null;
+    openingRef.current = null;
+    autoRef.current = null;
+    stoppingRef.current = false;
+  };
+
   const onMessage = (msg: FromEngine) => {
+    if (msg.type === 'error') {
+      dropEngine();
+      setView({ kind: 'error', message: 'Couldn’t open the microphone.' });
+      return;
+    }
     const auto = autoRef.current;
     if (!auto) return;
     if (msg.type === 'frame') {

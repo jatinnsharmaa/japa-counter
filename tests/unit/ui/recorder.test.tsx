@@ -142,6 +142,25 @@ describe('Recorder', () => {
     await waitFor(() => expect(screen.getByText('Microphone blocked. Allow it from the address bar, then try again.')).toBeTruthy());
   });
 
+  it('shows a mic error when the engine fails mid-take, and reopens the mic on the next Record', async () => {
+    const store = await makeStore();
+    await store.markMicExplained();
+    const engines = [new FakeEngine(), new FakeEngine()];
+    const openEngine = vi.fn(async () => engines[openEngine.mock.calls.length - 1]);
+    render(<StoreContext.Provider value={store}><Recorder openEngine={openEngine} /></StoreContext.Provider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
+    await waitFor(() => expect(engines[0].sentTypes()).toEqual(['rec-start']));
+    await frames(engines[0], -60, 20);
+    await act(() => engines[0].emit({ type: 'error', message: 'worker crashed' }));
+    expect(screen.getByRole('alert').textContent).toBe('Couldn’t open the microphone.');
+    expect(engines[0].closed).toBe(true);
+    expect(engines[0].listenerCount()).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
+    await waitFor(() => expect(engines[1].sentTypes()).toEqual(['rec-start']));
+    expect(openEngine).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Stay quiet…')).toBeTruthy();
+  });
+
   it('closes the mic when the setup screen goes away', async () => {
     const store = await makeStore();
     await store.markMicExplained();
