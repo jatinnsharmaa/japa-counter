@@ -42,8 +42,8 @@ export function Setup({ openEngine }: { openEngine: OpenEngine }) {
         <Recorder openEngine={openEngine} />
         {store.samples.value.length > 0 && (
           <ul class="samples">
-            {store.samples.value.map((s, i) => (
-              <SampleRow key={s.id} sample={s} index={i} flagged={store.outliers.value[i] ?? false} onDelete={() => void store.removeSample(s.id)} />
+            {store.samples.value.map((sample, i) => (
+              <SampleRow key={sample.id} sample={sample} index={i} flagged={store.outliers.value[i] ?? false} onDelete={() => void store.removeSample(sample.id)} />
             ))}
           </ul>
         )}

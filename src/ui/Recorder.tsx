@@ -13,7 +13,7 @@ type View =
   | { kind: 'explain' }
   | { kind: 'countdown'; n: number }
   | { kind: 'chant' }
-  | { kind: 'finishing' }
+  | { kind: 'finishing'; chant: boolean }
   | { kind: 'review'; sample: SampleRecord }
   | { kind: 'failed' }
   | { kind: 'error'; message: string };
@@ -63,11 +63,14 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
   const unsubRef = useRef<(() => void) | null>(null);
   const autoRef = useRef<AutoStop | null>(null);
   const stoppingRef = useRef(false);
+  const openingRef = useRef<Promise<EngineHandle> | null>(null);
+  const unmountedRef = useRef(false);
 
   // Layout-effect cleanup: Preact 11 defers passive-effect cleanups on unmount until after paint,
   // and the microphone should be released immediately when Setup goes away.
   useLayoutEffect(
     () => () => {
+      unmountedRef.current = true;
       unsubRef.current?.();
       void engineRef.current?.close();
       engineRef.current = null;
@@ -79,8 +82,9 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
     const auto = autoRef.current;
     if (!auto || stoppingRef.current) return;
     stoppingRef.current = true;
+    const chant = auto.reachedChant;
     auto.stop();
-    setView({ kind: 'finishing' });
+    setView({ kind: 'finishing', chant });
     engineRef.current?.send({ type: 'rec-stop' });
   };
 
@@ -109,7 +113,20 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
   const begin = async () => {
     try {
       if (!engineRef.current) {
-        const engine = await openEngine();
+        if (openingRef.current) return; // a take is already waiting for the mic
+        const opening = openEngine();
+        openingRef.current = opening;
+        let engine: EngineHandle;
+        try {
+          engine = await opening;
+        } catch (err) {
+          openingRef.current = null;
+          throw err;
+        }
+        if (unmountedRef.current) {
+          void engine.close();
+          return;
+        }
         engineRef.current = engine;
         unsubRef.current = engine.on(onMessage);
       }
@@ -155,7 +172,7 @@ export function Recorder({ openEngine }: { openEngine: OpenEngine }) {
     case 'finishing':
       return (
         <div class="recorder" aria-live="polite">
-          <p>Chant once now.</p>
+          <p>{view.kind === 'finishing' && !view.chant ? 'Stay quiet…' : 'Chant once now.'}</p>
           <LevelLine level={level} />
           <button type="button" onClick={requestStop} disabled={view.kind === 'finishing'}>Stop</button>
         </div>

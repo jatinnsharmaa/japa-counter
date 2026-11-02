@@ -40,4 +40,16 @@ describe('SampleRow', () => {
     expect(screen.getByText('✓ synced')).toBeTruthy();
     expect(screen.getByText('Sounds different from the others. Consider recording it again.')).toBeTruthy();
   });
+
+  it('renders an unusable, corrupt sample without decoding, with a working Delete and no Play button', () => {
+    const onDelete = vi.fn();
+    const corrupt = { ...sample, engineVersion: 0, wav: new ArrayBuffer(10) };
+    render(<ul><SampleRow sample={corrupt} index={0} flagged={false} onDelete={onDelete} /></ul>);
+    expect(screen.getByText('Couldn’t update this sample. Record it again.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^(Play|Pause) sample/ })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Download' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
+    expect(onDelete).toHaveBeenCalledOnce();
+  });
 });

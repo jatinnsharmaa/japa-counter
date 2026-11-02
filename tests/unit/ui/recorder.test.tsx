@@ -142,4 +142,49 @@ describe('Recorder', () => {
     expect(screen.getByRole('button', { name: 'Record a sample' })).toHaveProperty('disabled', true);
     expect(screen.getByText('10 samples is the most the counter uses. Delete one to record another.')).toBeTruthy();
   });
+
+  it('opens the engine once even if Record is pressed twice while it is opening', async () => {
+    const store = await makeStore();
+    await store.markMicExplained();
+    const engine = new FakeEngine();
+    let resolveOpen!: (e: FakeEngine) => void;
+    const openEngine = vi.fn(() => new Promise<FakeEngine>((r) => { resolveOpen = r; }));
+    render(<StoreContext.Provider value={store}><Recorder openEngine={openEngine} /></StoreContext.Provider>);
+    const record = screen.getByRole('button', { name: 'Record a sample' });
+    fireEvent.click(record);
+    fireEvent.click(record);
+    await act(async () => { resolveOpen(engine); });
+    await waitFor(() => expect(engine.sentTypes()).toEqual(['rec-start']));
+    expect(openEngine).toHaveBeenCalledTimes(1);
+    expect(engine.listenerCount()).toBe(1);
+    expect(engine.closed).toBe(false);
+  });
+
+  it('closes the engine if Setup goes away while the mic is still opening', async () => {
+    const store = await makeStore();
+    await store.markMicExplained();
+    const engine = new FakeEngine();
+    let resolveOpen!: (e: FakeEngine) => void;
+    const openEngine = vi.fn(() => new Promise<FakeEngine>((r) => { resolveOpen = r; }));
+    const view = render(<StoreContext.Provider value={store}><Recorder openEngine={openEngine} /></StoreContext.Provider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
+    view.unmount();
+    await act(async () => { resolveOpen(engine); });
+    await waitFor(() => expect(engine.closed).toBe(true));
+    expect(engine.sentTypes()).toEqual([]);
+    expect(engine.listenerCount()).toBe(0);
+  });
+
+  it('keeps "Stay quiet…" when Stop is pressed during the countdown', async () => {
+    const store = await makeStore();
+    await store.markMicExplained();
+    const { engine } = setup(store);
+    fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
+    await waitFor(() => expect(engine.sentTypes()).toEqual(['rec-start']));
+    await frames(engine, -60, 10);
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(engine.sentTypes()).toEqual(['rec-start', 'rec-stop']);
+    expect(screen.getByText('Stay quiet…')).toBeTruthy();
+    expect(screen.queryByText('Chant once now.')).toBeNull();
+  });
 });

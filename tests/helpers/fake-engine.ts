@@ -23,6 +23,10 @@ export class FakeEngine implements EngineHandle {
     for (const l of [...this.listeners]) l(msg);
   }
 
+  listenerCount(): number {
+    return this.listeners.size;
+  }
+
   sentTypes(): string[] {
     return this.sent.map((m) => m.type);
   }
