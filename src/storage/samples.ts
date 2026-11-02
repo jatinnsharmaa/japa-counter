@@ -34,18 +34,33 @@ export function buildSampleFromRecording(pcm16k: Float32Array, floor: number, no
   return rebuildFromWav({ id, createdAt: now, wav: encodeWav(pcm16k, SR), floor, synced: false });
 }
 
-/** Re-extracts features for samples cached by another engine version. Returns how many were updated. */
-export async function ensureCurrentFeatures(db: JapaDB): Promise<number> {
+export function isUsable(s: SampleRecord): boolean {
+  return s.engineVersion === ENGINE_VERSION;
+}
+
+/**
+ * Re-extracts features for samples cached by another engine version. Each sample is rebuilt
+ * independently: one that cannot be rebuilt (no chant found, corrupt or non-16 kHz WAV) is left
+ * on disk unchanged, so it stays unusable, and its id is reported in `failed`.
+ */
+export async function ensureCurrentFeatures(db: JapaDB): Promise<{ updated: number; failed: string[] }> {
   let updated = 0;
+  const failed: string[] = [];
   for (const s of await listSamples(db)) {
-    if (s.engineVersion === ENGINE_VERSION) continue;
-    const rebuilt = rebuildFromWav(s);
-    if (rebuilt) {
+    if (isUsable(s)) continue;
+    try {
+      const rebuilt = rebuildFromWav(s);
+      if (!rebuilt) {
+        failed.push(s.id);
+        continue;
+      }
       await putSample(db, rebuilt);
       updated++;
+    } catch {
+      failed.push(s.id);
     }
   }
-  return updated;
+  return { updated, failed };
 }
 
 export function trimmedWav(s: SampleRecord): ArrayBuffer {

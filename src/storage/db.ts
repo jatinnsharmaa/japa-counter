@@ -56,12 +56,14 @@ export type JapaDB = IDBPDatabase<JapaSchema>;
 
 export function openDb(name: string = DB_NAME): Promise<JapaDB> {
   return openDB<JapaSchema>(name, 1, {
-    upgrade(db) {
-      db.createObjectStore('samples', { keyPath: 'id' });
-      db.createObjectStore('settings');
-      db.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
-      db.createObjectStore('pendingDeletes', { keyPath: 'driveFileId' });
-      db.createObjectStore('meta');
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        db.createObjectStore('samples', { keyPath: 'id' });
+        db.createObjectStore('settings');
+        db.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
+        db.createObjectStore('pendingDeletes', { keyPath: 'driveFileId' });
+        db.createObjectStore('meta');
+      }
     },
   });
 }
