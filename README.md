@@ -71,14 +71,6 @@ Counting sessions never use the internet. Once the app has loaded, it also works
 - It has only been tested with computer-generated voices so far. The next step is tuning it with real recordings: a full 108-chant session counted against a physical mala, plus everyday room sounds like a fan, TV, talking, or dogs barking.
 - Loud background noise right after you chant (a dog barking, for example) can keep a voice recording running. Press **Stop** when you're done, and **Redo** if you hear the noise at the end of the clip. ([#1](https://github.com/jatinnsharmaa/japa-counter/issues/1))
 
-## Ideas for later
-
-- Choose white text on black or black text on white ([#2](https://github.com/jatinnsharmaa/japa-counter/issues/2))
-- Ask "End this session?" when you press Esc, instead of ending straight away ([#3](https://github.com/jatinnsharmaa/japa-counter/issues/3))
-- Your own picture softly behind the mantra, with text colours that adapt to it ([#4](https://github.com/jatinnsharmaa/japa-counter/issues/4))
-- Move, resize and recolour the mantra and the count ([#5](https://github.com/jatinnsharmaa/japa-counter/issues/5))
-- A warmer, guided setup screen ([#6](https://github.com/jatinnsharmaa/japa-counter/issues/6))
-
 ## Running it
 
 You need [Node.js](https://nodejs.org) 22 or newer (it includes `npm`), [Git](https://git-scm.com), and Google Chrome. On a Mac, open the **Terminal** app to type the commands below.
