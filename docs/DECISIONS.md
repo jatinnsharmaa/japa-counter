@@ -29,7 +29,7 @@ A log of the choices made while building v2 (M0–M4), on top of the locked deci
 | 3-2-1 countdown measures the noise floor; the take stores the **countdown median** as its floor (as v1 did) | A late fix: the drifted chant-phase floor was being stored, which weakened the overcount guard in sessions | — |
 | Auto-stop: ≥ 0.8 s voiced, then 0.8 s below a quiet line; 15 s hard limit; Stop always visible; nothing saved before Keep | Spec redesign after v1 missed 20–30% of stops | — |
 | Quiet line = max(floor + 8 dB, **median** speech level − 25 dB) (user-approved) | A lifetime-peak line let a cough or a loud opening "Om" end the take mid-chant | 25 dB was sized for a peak; may need retuning on real audio |
-| Loud bursts under 5 frames (0.1 s) don't restart the quiet wait | Breaths and clicks shouldn't keep a take running | Longer noises (e.g. barking) do keep it running — see [#2](https://github.com/jatinnsharmaa/japa-counter/issues/2) |
+| Loud bursts under 5 frames (0.1 s) don't restart the quiet wait | Breaths and clicks shouldn't keep a take running | Longer noises (e.g. barking) do keep it running — see [#1](https://github.com/jatinnsharmaa/japa-counter/issues/1) |
 | Floor may only drift down, and never more than 10 dB below the countdown floor | A muted mic or digital silence could otherwise drag it to −120 dB | — |
 | One mic stream per setup visit, opened once (guarded against double clicks and unmount while opening) | Locked: permission asked once; no new prompt between recordings | — |
 | Cap at 10 samples, enforced in the store | Spec caps matchers at 10 for CPU | An 11th sample is refused |
@@ -80,6 +80,12 @@ A log of the choices made while building v2 (M0–M4), on top of the locked deci
 
 ## Known follow-ups
 
-- [#2](https://github.com/jatinnsharmaa/japa-counter/issues/2) Auto-stop keeps running when dogs bark after the chant.
+- [#1](https://github.com/jatinnsharmaa/japa-counter/issues/1) Auto-stop keeps running when dogs bark after the chant.
 - M5: real-voice fixtures, threshold and floor tuning, CMVN, negative recording, calibration trial (F15).
 - Minor items from reviews: invalid target values are saved without a message; a stalled Google sign-in script can leave a duplicate script tag; corrupt Drive files are re-downloaded each sync; Safari may block the Connect popup.
+- Feature ideas, not yet planned: session theme ([#2](https://github.com/jatinnsharmaa/japa-counter/issues/2)), confirm before ending on Esc — changes a Locked decision ([#3](https://github.com/jatinnsharmaa/japa-counter/issues/3)), background image with adaptive text colours ([#4](https://github.com/jatinnsharmaa/japa-counter/issues/4)), movable and styleable mantra/count ([#5](https://github.com/jatinnsharmaa/japa-counter/issues/5)), setup screen redesign ([#6](https://github.com/jatinnsharmaa/japa-counter/issues/6)).
+
+## Publishing
+
+- The example mantra in the code and docs is ॐ नमः शिवाय / om namah shivaya. The app's default is only a starting point; each person types their own mantra, which stays in their browser.
+- Before the repo went public, its history was rewritten to replace a personal mantra and a Google Cloud project ID, and commit emails were switched to a GitHub no-reply address. It was published as a new repository so no earlier copies are reachable.

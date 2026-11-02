@@ -46,4 +46,4 @@ Conventional prefixes (`feat:`, `fix:`, `test:`, `docs:`, `chore:`). **Never add
 ## Environment
 
 - `.env.local` (git-ignored) holds `VITE_GOOGLE_CLIENT_ID`. Without it, Drive backup is off. Never commit a client secret.
-- Open work: M5 real-voice tuning; [#2](https://github.com/jatinnsharmaa/japa-counter/issues/2) (barking keeps a recording running).
+- Open work: M5 real-voice tuning; [#1](https://github.com/jatinnsharmaa/japa-counter/issues/1) (barking keeps a recording running).
