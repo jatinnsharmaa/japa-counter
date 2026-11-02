@@ -55,3 +55,19 @@ button.start { align-self: flex-start; padding: 0.6rem 2rem; border-color: curre
 .sample-row .flag { flex-basis: 100%; margin: 0; }
 button.icon { border: 0; padding: 0 0.2rem; }
 @media (prefers-reduced-motion: reduce) { .level span { transition: none; } }
+
+.session {
+  position: fixed; inset: 0; background: var(--session-bg); color: var(--mantra); cursor: none;
+  display: grid; grid-template-rows: 1fr auto; justify-items: center; align-items: center; padding: 3rem 1.5rem 3.5rem;
+}
+.session-quiet { color: var(--count); font-size: 1rem; margin: 0; }
+.mantra { text-align: center; max-width: 60rem; }
+.mantra-dev { font-family: var(--font-mantra); font-size: clamp(2.25rem, 5.5vw, 4.5rem); line-height: 1.5; margin: 0; }
+.mantra-roman { font-size: clamp(1rem, 1.8vw, 1.4rem); margin: 0.75rem 0 0; opacity: 0.55; }
+.session-meta { text-align: center; min-height: 3rem; }
+.count { color: var(--count); font-size: 15px; margin: 0; font-variant-numeric: tabular-nums; }
+.count.bump { animation: count-fade 600ms ease-out; }
+.timer { color: var(--timer); font-size: 13px; margin: 0.25rem 0 0; font-variant-numeric: tabular-nums; }
+.summary { color: var(--count); font-size: 15px; margin: 0; white-space: pre; }
+@keyframes count-fade { from { color: var(--count-bright); } to { color: var(--count); } }
+@media (prefers-reduced-motion: reduce) { .count.bump { animation: none; } }

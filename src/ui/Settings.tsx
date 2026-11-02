@@ -1,4 +1,5 @@
 import { STRICTNESS_STEPS } from '../engine/calibrate';
+import { formatDuration } from '../session/session-logic';
 import { useStore } from '../state/store';
 
 const STRICTNESS_LABELS = ['Strictest', 'Very strict', 'Stricter', 'Strict (default)', 'Relaxed', 'Most relaxed'];
@@ -30,7 +31,7 @@ export function Settings() {
         <ul class="history">
           {store.history.value.map((h) => (
             <li key={h.id ?? h.at}>
-              {dateFmt.format(h.at)} · {h.count} / {h.target} · {Math.round(h.secs)}s · {h.avgSecsPerChant.toFixed(1)} s per chant
+              {dateFmt.format(h.at)} · {h.count} / {h.target} · {formatDuration(h.secs)} · {h.avgSecsPerChant.toFixed(1)} s per chant
             </li>
           ))}
         </ul>
