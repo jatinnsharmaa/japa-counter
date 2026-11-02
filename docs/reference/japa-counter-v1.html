@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Japa counter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Tiro+Devanagari+Sanskrit&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F1EFF4; --surface:#FFFFFF; --ink:#1E1929; --muted:#5D5669; --line:#D8D3DF;
+  --accent:#9A5508; --accent-ink:#FFFFFF; --danger:#A3322A;
+  --night:#000000; --night-ink:#D8CDBD; --night-dim:#6E6559; --bead:#2A2330; --flame:#F2A43A; --glow:rgba(242,164,58,.55);
+  --serif:"Tiro Devanagari Sanskrit","Noto Serif Devanagari","Kohinoor Devanagari",Georgia,serif;
+  --sans:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#130F1B; --surface:#1C1726; --ink:#ECE6F1; --muted:#A69EB2; --line:#2F2839; --accent:#F2A43A; --accent-ink:#1B1207; --danger:#F08A80; color-scheme:dark;}}
+:root[data-theme="dark"]{--bg:#130F1B; --surface:#1C1726; --ink:#ECE6F1; --muted:#A69EB2; --line:#2F2839; --accent:#F2A43A; --accent-ink:#1B1207; --danger:#F08A80; color-scheme:dark;}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.55 var(--sans)}
+main{max-width:620px;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+h1{font:400 2.4rem/1.1 var(--serif);margin:0 0 .4rem}
+.lede{color:var(--muted);margin:0 0 2.25rem;max-width:34em}
+section{border-top:1px solid var(--line);padding:1.5rem 0}
+h2{font:600 1.05rem/1.3 var(--sans);margin:0 0 .35rem}
+.hint{color:var(--muted);font-size:.92rem;margin:0 0 1rem}
+textarea,input[type=number]{width:100%;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.7rem .85rem}
+textarea{font-family:var(--serif);font-size:1.25rem;line-height:1.5;min-height:5.2rem;resize:vertical}
+input[type=number]{max-width:10rem;font-size:1.2rem;font-variant-numeric:tabular-nums}
+button{font:600 .95rem/1 var(--sans);border-radius:999px;padding:.75rem 1.2rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.chip{padding:.55rem .9rem;font-weight:500}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.samples{list-style:none;padding:0;margin:1rem 0 0;display:grid;gap:.4rem}
+.samples li{display:flex;justify-content:space-between;align-items:center;padding:.5rem .2rem .5rem .8rem;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.samples li.off{border-color:var(--danger)}
+.samples button{padding:.45rem .8rem;font-weight:500;border:none;background:none;color:var(--muted)}
+.status{margin:.9rem 0 0;font-size:.92rem;color:var(--muted)}
+.status.warn{color:var(--danger)}
+.rec{font-variant-numeric:tabular-nums}
+label.slider{display:grid;gap:.4rem;max-width:22rem}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.ends{display:flex;justify-content:space-between;font-size:.85rem;color:var(--muted)}
+.toggle{display:flex;gap:.6rem;align-items:center;margin-top:1rem}
+.start{border-top:none;padding-top:.5rem}
+.start button{padding:1rem 1.8rem;font-size:1.05rem}
+.history{list-style:none;padding:0;margin:0;display:grid;gap:.3rem;font-variant-numeric:tabular-nums}
+.history li{display:flex;justify-content:space-between;gap:1rem;color:var(--muted);font-size:.92rem}
+.history li span:first-child{color:var(--ink)}
+
+/* Session: always dark, built for a dark room */
+#session{position:fixed;inset:0;background:var(--night);color:var(--night-ink);display:none;flex-direction:column;align-items:center;justify-content:center;gap:1.4rem;padding:calc(1rem + env(safe-area-inset-top,0px)) 1rem calc(1rem + env(safe-area-inset-bottom,0px));z-index:10;cursor:none}
+#session.on{display:flex}
+#session.done{cursor:auto}
+.s-mantra{font:400 clamp(1.3rem,3.6vw,2.2rem)/1.5 var(--serif);text-align:center;white-space:pre-line;color:var(--night-ink);opacity:.62;max-width:24em}
+.ring{position:relative;width:min(72vmin,520px);aspect-ratio:1}
+.ring svg{width:100%;height:100%;display:block}
+.bead{fill:var(--bead);transition:fill .6s ease}
+.bead.lit{fill:var(--flame)}
+.bead.meru{fill:#4A3C2E}
+.bead.flare{animation:flare 1.4s ease-out}
+@keyframes flare{0%{fill:#FFE2B0;filter:drop-shadow(0 0 10px var(--glow))}100%{filter:drop-shadow(0 0 0 transparent)}}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.count{font:400 clamp(3.5rem,14vmin,8rem)/1 var(--serif);font-variant-numeric:tabular-nums;color:var(--night-ink)}
+.of{color:var(--night-dim);font-size:clamp(.95rem,2.4vmin,1.2rem);margin-top:.4rem;font-variant-numeric:tabular-nums}
+.round{color:var(--night-dim);font-size:.9rem;margin-top:.2rem}
+.timer{color:var(--night-dim);font-variant-numeric:tabular-nums;font-size:1.1rem;letter-spacing:.02em}
+.cue{color:var(--night-ink);font-size:1.1rem;min-height:1.6em;text-align:center}
+.end{position:absolute;bottom:calc(1rem + env(safe-area-inset-bottom,0px));right:1rem;background:none;border:1px solid #2A2330;color:var(--night-dim);font-weight:500;cursor:pointer}
+.done-box{text-align:center;display:none;gap:.5rem;flex-direction:column;align-items:center}
+#session.done .done-box{display:flex}
+#session.done .ring,#session.done .timer,#session.done .cue,#session.done .end{display:none}
+.done-box h2{font:400 2rem/1.2 var(--serif);color:var(--night-ink);margin:0}
+.done-box p{margin:0;color:var(--night-dim);font-variant-numeric:tabular-nums}
+.done-box .big{font:400 3rem/1.1 var(--serif);color:var(--flame)}
+.done-box button{margin-top:1.2rem;background:none;color:var(--night-ink);border-color:#3A3140}
+@media (prefers-reduced-motion:reduce){.bead,.bead.flare{animation:none;transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Japa counter</h1>
+  <p class="lede">Counts your chants by listening for your own voice. Audio is processed in this browser and never uploaded.</p>
+
+  <section>
+    <h2>Mantra</h2>
+    <p class="hint">Shown on screen while you chant.</p>
+    <textarea id="mantra" aria-label="Mantra text"></textarea>
+  </section>
+
+  <section>
+    <h2>Voice samples</h2>
+    <p class="hint">Record yourself chanting the mantra once per sample, at your usual pace and volume. Record at least 3, ideally 6 to 8. Each recording stops on its own after you finish.</p>
+    <div class="row">
+      <button id="recBtn" class="primary">Record a sample</button>
+      <span id="recState" class="rec" aria-live="polite"></span>
+    </div>
+    <ul id="samples" class="samples"></ul>
+    <p id="calStatus" class="status" aria-live="polite"></p>
+  </section>
+
+  <section>
+    <h2>Target</h2>
+    <div class="row" style="margin-top:.6rem">
+      <input id="target" type="number" min="1" max="100000" step="1" aria-label="Target number of chants">
+      <button class="chip" data-t="108">108</button>
+      <button class="chip" data-t="1008">1008</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Strictness</h2>
+    <p class="hint">Strict skips any chant it isn’t sure about, so you may chant a few extra but never fall short. Loosen only if a trial run undercounts a lot.</p>
+    <label class="slider">
+      <input id="strict" type="range" min="0.85" max="1.1" step="0.05" aria-label="Strictness">
+      <span class="ends"><span>Stricter</span><span>Looser</span></span>
+    </label>
+    <label class="toggle"><input id="bell" type="checkbox"> Soft bell every 108 chants</label>
+  </section>
+
+  <section class="start">
+    <button id="startBtn" class="primary">Start chanting</button>
+    <p id="startHint" class="status"></p>
+  </section>
+
+  <section id="histSec" hidden>
+    <h2>Past sessions</h2>
+    <ul id="history" class="history"></ul>
+  </section>
+</main>
+
+<div id="session" role="dialog" aria-label="Chanting session">
+  <div class="s-mantra" id="sMantra"></div>
+  <div class="ring">
+    <svg id="mala" viewBox="0 0 400 400" aria-hidden="true"></svg>
+    <div class="center"><div class="count" id="sCount">0</div><div class="of" id="sOf"></div><div class="round" id="sRound"></div></div>
+  </div>
+  <div class="timer" id="sTimer">0:00</div>
+  <div class="cue" id="sCue" aria-live="polite"></div>
+  <div class="done-box">
+    <h2 id="dTitle">Target reached</h2>
+    <div class="big" id="dCount"></div>
+    <p id="dTime"></p>
+    <p id="dPace"></p>
+    <button id="dBack">Back</button>
+  </div>
+  <button class="end" id="endBtn">End session</button>
+</div>
+<script>
+// ===== CORE-START =====
+const SR = 16000, FRAME = 512, HOP = 320, NFFT = 512, NMEL = 40, NCEP = 12;
+const FPS = SR / HOP; // 50 frames per second
+
+const DSP = (() => {
+  const half = NFFT / 2;
+  const cosT = new Float64Array(half), sinT = new Float64Array(half);
+  for (let k = 0; k < half; k++) { cosT[k] = Math.cos(2 * Math.PI * k / NFFT); sinT[k] = Math.sin(2 * Math.PI * k / NFFT); }
+  const bits = Math.log2(NFFT);
+  const rev = new Uint16Array(NFFT);
+  for (let i = 0; i < NFFT; i++) { let r = 0; for (let b = 0; b < bits; b++) r |= ((i >> b) & 1) << (bits - 1 - b); rev[i] = r; }
+  const win = new Float64Array(FRAME);
+  for (let i = 0; i < FRAME; i++) win[i] = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (FRAME - 1));
+  const mel = f => 2595 * Math.log10(1 + f / 700), imel = m => 700 * (Math.pow(10, m / 2595) - 1);
+  const lo = mel(60), hi = mel(7600), pts = [];
+  for (let i = 0; i < NMEL + 2; i++) pts.push(Math.floor((NFFT + 1) * imel(lo + (hi - lo) * i / (NMEL + 1)) / SR));
+  const filters = [];
+  for (let m = 1; m <= NMEL; m++) {
+    const a = pts[m - 1], b = pts[m], c = pts[m + 1], w = [];
+    for (let k = a; k <= c; k++) {
+      const v = k < b ? (k - a) / Math.max(1, b - a) : (c - k) / Math.max(1, c - b);
+      w.push(Math.max(0, v));
+    }
+    filters.push({ a, w });
+  }
+  const dct = [];
+  for (let k = 1; k <= NCEP; k++) {
+    const row = new Float64Array(NMEL);
+    for (let n = 0; n < NMEL; n++) row[n] = Math.cos(Math.PI * k * (n + 0.5) / NMEL);
+    dct.push(row);
+  }
+  const re = new Float64Array(NFFT), im = new Float64Array(NFFT), logm = new Float64Array(NMEL);
+
+  function frame(x) {
+    let e = 0;
+    for (let i = 0; i < FRAME; i++) e += x[i] * x[i];
+    const db = 10 * Math.log10(e / FRAME + 1e-12);
+    im.fill(0);
+    let prev = x[0];
+    for (let i = 0; i < FRAME; i++) { const s = x[i] - 0.97 * prev; prev = x[i]; re[rev[i]] = s * win[i]; }
+    for (let size = 2; size <= NFFT; size <<= 1) {
+      const h = size >> 1, step = NFFT / size;
+      for (let i = 0; i < NFFT; i += size) for (let j = 0; j < h; j++) {
+        const k = j * step, a = i + j, b = a + h;
+        const tr = re[b] * cosT[k] + im[b] * sinT[k], ti = -re[b] * sinT[k] + im[b] * cosT[k];
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+      }
+    }
+    for (let m = 0; m < NMEL; m++) {
+      const f = filters[m]; let s = 0;
+      for (let j = 0; j < f.w.length; j++) { const k = f.a + j; if (k > half) break; s += f.w[j] * (re[k] * re[k] + im[k] * im[k]); }
+      logm[m] = Math.log(s + 1e-10);
+    }
+    const v = new Float32Array(NCEP);
+    for (let k = 0; k < NCEP; k++) { let s = 0; const row = dct[k]; for (let n = 0; n < NMEL; n++) s += row[n] * logm[n]; v[k] = s; }
+    return { v, db };
+  }
+  return { frame };
+})();
+
+// Downsamples any input rate to 16 kHz and emits one feature frame every 20 ms.
+class FeatureStream {
+  constructor(inRate, onFrame) {
+    this.r = inRate / SR; this.acc = 0; this.cnt = 0; this.pos = 0;
+    this.buf = new Float32Array(SR); this.n = 0; this.onFrame = onFrame;
+  }
+  push(input) {
+    for (let i = 0; i < input.length; i++) {
+      this.acc += input[i]; this.cnt++; this.pos += 1;
+      if (this.pos >= this.r) {
+        this.buf[this.n++] = this.acc / this.cnt; this.acc = 0; this.cnt = 0; this.pos -= this.r;
+        if (this.n >= FRAME) {
+          this.onFrame(DSP.frame(this.buf.subarray(0, FRAME)));
+          this.buf.copyWithin(0, HOP, this.n); this.n -= HOP;
+        }
+      }
+    }
+  }
+}
+
+function vsub(v, m) { const o = new Float32Array(v.length); for (let i = 0; i < v.length; i++) o[i] = v[i] - m[i]; return o; }
+function unit(v) {
+  let s = 0; for (let i = 0; i < v.length; i++) s += v[i] * v[i];
+  s = Math.sqrt(s) || 1; const o = new Float32Array(v.length);
+  for (let i = 0; i < v.length; i++) o[i] = v[i] / s; return o;
+}
+
+// Streaming subsequence DTW: finds the template anywhere inside a continuous stream.
+class Matcher {
+  constructor(tpl) {
+    this.T = tpl; const M = this.M = tpl.length;
+    this.D = new Float64Array(M).fill(Infinity); this.S = new Int32Array(M).fill(-1);
+    this.nD = new Float64Array(M); this.nS = new Int32Array(M); this.cand = null;
+  }
+  reset() { this.D.fill(Infinity); this.cand = null; }
+  step(x, t) {
+    const T = this.T, M = this.M, D = this.D, S = this.S, nD = this.nD, nS = this.nS, PEN = 0.03;
+    for (let i = 0; i < M; i++) {
+      const ti = T[i]; let d = 0;
+      for (let k = 0; k < x.length; k++) d += ti[k] * x[k];
+      const c = d >= 1 ? 0 : 1 - d;
+      let best, bs;
+      if (i === 0) {
+        best = 2 * c; bs = t;
+        const h = D[0] + c + PEN; if (h < best) { best = h; bs = S[0]; }
+      } else {
+        best = D[i - 1] + 2 * c; bs = S[i - 1];
+        const h = D[i] + c + PEN; if (h < best) { best = h; bs = S[i]; }
+        if (i >= 2) { const s2 = D[i - 2] + 3 * c + PEN; if (s2 < best) { best = s2; bs = S[i - 2]; } }
+      }
+      nD[i] = best; nS[i] = bs;
+    }
+    this.D = nD; this.nD = D; this.S = nS; this.nS = S;
+    const e = this.D[M - 1];
+    if (!isFinite(e)) return null;
+    const ts = this.S[M - 1], N = t - ts + 1;
+    if (N < 0.5 * M || N > 2 * M) return null;
+    return { score: e / (N + M), ts, te: t };
+  }
+  dropUpTo(f) { const D = this.D, S = this.S; for (let i = 0; i < this.M; i++) if (S[i] <= f) D[i] = Infinity; }
+}
+
+// Turns one recorded sample (frames of {v, db}) into a trimmed, mean-normalised template.
+function processTake(frames, floor) {
+  const thr = floor + 8; let a = -1, b = -1;
+  for (let i = 0; i < frames.length; i++) if (frames[i].db > thr) { if (a < 0) a = i; b = i; }
+  if (a < 0 || b - a < 40) return null;
+  a = Math.max(0, a - 1); b = Math.min(frames.length - 1, b + 1);
+  const seg = frames.slice(a, b + 1), mean = new Float32Array(NCEP); let n = 0;
+  for (const f of seg) if (f.db > thr) { for (let k = 0; k < NCEP; k++) mean[k] += f.v[k]; n++; }
+  for (let k = 0; k < NCEP; k++) mean[k] /= n;
+  return { frames: seg.map(f => vsub(f.v, mean)), mean, dur: seg.length / FPS };
+}
+
+function bestScore(tpl, frames) {
+  const m = new Matcher(tpl); let best = Infinity;
+  for (let t = 0; t < frames.length; t++) { const r = m.step(frames[t], t); if (r && r.score < best) best = r.score; }
+  return best;
+}
+
+// Compares every sample against every other to set the match limit.
+function calibrate(takes) {
+  const n = takes.length; if (n < 2) return null;
+  const U = takes.map(tk => tk.frames.map(unit));
+  const per = U.map(() => []), all = [];
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    if (i === j) continue;
+    const s = bestScore(U[i], U[j]);
+    if (isFinite(s)) { all.push(s); per[i].push(s); per[j].push(s); }
+  }
+  if (!all.length) return null;
+  const mean = all.reduce((a, b) => a + b, 0) / all.length;
+  const sd = Math.sqrt(all.reduce((acc, b) => acc + (b - mean) ** 2, 0) / all.length);
+  const max = Math.max(...all);
+  const perAvg = per.map(p => p.length ? p.reduce((a, b) => a + b, 0) / p.length : Infinity);
+  return { base: Math.min(0.32, Math.max(0.26, max * 1.3, mean * 2.2)), mean, sd, max, perAvg };
+}
+
+// Live counter: feeds frames through every template matcher and emits one count per chant.
+class Counter {
+  constructor(takes, opts) {
+    this.matchers = takes.map(tk => new Matcher(tk.frames.map(unit)));
+    this.Mavg = this.matchers.reduce((a, m) => a + m.M, 0) / this.matchers.length;
+    this.mean = new Float32Array(NCEP);
+    for (const tk of takes) for (let k = 0; k < NCEP; k++) this.mean[k] += tk.mean[k] / takes.length;
+    this.thr = opts.thr; this.floor = opts.floor;
+    this.onCount = opts.onCount; this.onScore = opts.onScore || null;
+    this.t = 0; this.voiced = new Uint8Array(4096); this.last = null;
+  }
+  reset() { for (const m of this.matchers) m.reset(); this.last = null; }
+  feed(fr) {
+    if (!isFinite(fr.db)) return;
+    const t = this.t++, v = fr.v, db = fr.db;
+    if (db < this.floor) this.floor = 0.9 * this.floor + 0.1 * db;
+    const isV = db > this.floor + 8;
+    this.voiced[t & 4095] = isV ? 1 : 0;
+    if (isV) for (let k = 0; k < NCEP; k++) this.mean[k] += (v[k] - this.mean[k]) / 150;
+    const x = unit(vsub(v, this.mean));
+    let bestNow = Infinity;
+    for (const m of this.matchers) {
+      const r = m.step(x, t);
+      if (r) {
+        if (r.score < bestNow) bestNow = r.score;
+        if (isV && r.score < this.thr && (!m.cand || r.score < m.cand.score)) m.cand = r;
+      }
+      if (m.cand && t - m.cand.te >= Math.max(8, Math.round(0.12 * m.M))) {
+        const c = m.cand; m.cand = null; this.emit(c);
+      }
+    }
+    if (this.onScore) this.onScore(bestNow, this.thr, isV);
+  }
+  emit(c) {
+    const n = c.te - c.ts + 1; let v = 0;
+    for (let f = c.ts; f <= c.te; f++) v += this.voiced[f & 4095];
+    if (v / n < 0.6) return;
+    if (this.last) {
+      const ov = Math.min(c.te, this.last.te) - Math.max(c.ts, this.last.ts);
+      if (c.te <= this.last.te || ov > 0.4 * Math.min(n, this.last.te - this.last.ts + 1)) return;
+    }
+    this.last = c;
+    const cut = c.te - Math.round(0.2 * this.Mavg);
+    for (const m of this.matchers) { m.dropUpTo(cut); if (m.cand && m.cand.ts <= cut) m.cand = null; }
+    this.onCount(c);
+  }
+}
+// ===== CORE-END =====
+// ===== APP =====
+const $ = id => document.getElementById(id);
+const K = { set: 'japa.v1.settings', samples: 'japa.v1.samples', hist: 'japa.v1.history' };
+const load = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
+
+const settings = Object.assign({ mantra: 'ॐ नमः शिवाय\nom namah shivaya', target: 108, strict: 1, bell: true }, load(K.set, {}));
+let stored = load(K.samples, { floor: -60, items: [] });
+let takes = [], cal = null;
+
+function hydrate() {
+  takes = stored.items.map(it => ({ frames: it.frames.map(f => Float32Array.from(f)), mean: Float32Array.from(it.mean), dur: it.dur }));
+  cal = takes.length >= 3 ? calibrate(takes) : null;
+}
+function persistSamples() {
+  const r = x => Math.round(x * 1000) / 1000;
+  stored.items = takes.map(t => ({ frames: t.frames.map(f => Array.from(f, r)), mean: Array.from(t.mean, r), dur: t.dur }));
+  if (!save(K.samples, stored)) $('calStatus').textContent = 'Couldn’t save samples in this browser. They’ll last until you close the page.';
+}
+const fmtTime = s => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`; };
+const fmtLong = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + 'h ' : '') + (h || m ? m + 'm ' : '') + x + 's'; };
+const nf = n => n.toLocaleString('en-IN');
+
+// ----- Microphone -----
+const Mic = {
+  ctx: null, stream: null, node: null,
+  async start(onFrame) {
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    await this.ctx.resume();
+    this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    const src = this.ctx.createMediaStreamSource(this.stream);
+    this.node = this.ctx.createScriptProcessor(2048, 1, 1);
+    const fs = new FeatureStream(this.ctx.sampleRate, onFrame);
+    this.node.onaudioprocess = e => fs.push(e.inputBuffer.getChannelData(0));
+    const g = this.ctx.createGain(); g.gain.value = 0;
+    src.connect(this.node); this.node.connect(g); g.connect(this.ctx.destination);
+  },
+  stop() {
+    try { this.node && (this.node.onaudioprocess = null); this.stream && this.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+    const c = this.ctx; this.ctx = null; this.stream = null; this.node = null;
+    if (c) setTimeout(() => { try { c.close(); } catch (e) {} }, 4000);
+  }
+};
+function micError(e) {
+  if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) return 'This hosted page can’t reach the microphone. Download the file version and open it in Chrome from your laptop instead.';
+  if (e && e.name === 'NotFoundError') return 'No microphone found. Connect one and try again.';
+  return 'Couldn’t start the microphone. Try again, or open this page in its own browser tab.';
+}
+function bell(ctx, when = 0, freq = 528, vol = 0.12) {
+  if (!ctx) return;
+  const t = ctx.currentTime + when;
+  [[1, 1], [2.76, 0.35], [5.4, 0.12]].forEach(([m, a]) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = freq * m; o.type = 'sine';
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol * a, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6);
+    o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 2.7);
+  });
+}
+const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+
+// ----- Setup screen -----
+function renderSamples() {
+  const ul = $('samples'); ul.innerHTML = '';
+  const med = cal ? median(cal.perAvg.filter(isFinite)) : 0;
+  takes.forEach((t, i) => {
+    const li = document.createElement('li');
+    const odd = cal && (!isFinite(cal.perAvg[i]) || cal.perAvg[i] > med * 1.45);
+    if (odd) li.className = 'off';
+    li.innerHTML = `<span>Sample ${i + 1}, ${t.dur.toFixed(1)} s${odd ? ' <span style="color:var(--danger)">sounds different from the others</span>' : ''}</span>`;
+    const b = document.createElement('button'); b.textContent = 'Delete'; b.setAttribute('aria-label', `Delete sample ${i + 1}`);
+    b.onclick = () => { takes.splice(i, 1); cal = takes.length >= 3 ? calibrate(takes) : null; persistSamples(); renderSamples(); };
+    li.appendChild(b); ul.appendChild(li);
+  });
+  const st = $('calStatus'); st.classList.remove('warn');
+  if (takes.length === 0) st.textContent = 'No samples yet.';
+  else if (takes.length < 3) st.textContent = `${3 - takes.length} more sample${takes.length === 2 ? '' : 's'} needed before you can start.`;
+  else if (!cal) { st.textContent = 'These samples don’t match each other. Delete them and record again in a quiet room.'; st.classList.add('warn'); }
+  else st.textContent = takes.length < 6 ? `Ready. ${6 - takes.length} more sample${takes.length === 5 ? '' : 's'} will make counting more reliable.` : 'Ready.';
+  const ok = !!cal && takes.length >= 3;
+  $('startBtn').disabled = !ok;
+  $('startHint').textContent = ok ? 'Tip: do one trial of 27 chants with a physical mala to check the count matches.' : '';
+}
+function renderHistory() {
+  const h = load(K.hist, []); $('histSec').hidden = !h.length;
+  $('history').innerHTML = h.slice(0, 12).map(s => `<li><span>${new Date(s.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${nf(s.count)} of ${nf(s.target)}</span><span>${fmtLong(s.secs)}</span></li>`).join('');
+}
+function syncChips() { document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(+c.dataset.t === settings.target))); }
+
+$('mantra').value = settings.mantra;
+$('mantra').oninput = e => { settings.mantra = e.target.value; save(K.set, settings); };
+$('target').value = settings.target;
+$('target').oninput = e => { const v = Math.floor(+e.target.value); if (v > 0) { settings.target = v; save(K.set, settings); syncChips(); } };
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => { settings.target = +c.dataset.t; $('target').value = settings.target; save(K.set, settings); syncChips(); });
+$('strict').value = settings.strict;
+$('strict').oninput = e => { settings.strict = +e.target.value; save(K.set, settings); };
+$('bell').checked = settings.bell;
+$('bell').onchange = e => { settings.bell = e.target.checked; save(K.set, settings); };
+
+// ----- Recording a sample -----
+let recording = null;
+$('recBtn').onclick = async () => {
+  if (recording) { recording.finish(); return; }
+  const btn = $('recBtn'), st = $('recState');
+  const r = recording = { phase: 'quiet', dbs: [], frames: [], voiced: 0, silentRun: 0, floor: -60 };
+  r.finish = () => {
+    if (recording !== r) return; recording = null; Mic.stop(); btn.textContent = 'Record a sample';
+    if (r.phase !== 'chant') { st.textContent = ''; return; }
+    const tk = processTake(r.frames, r.floor);
+    if (!tk) { st.textContent = 'Didn’t catch a full chant. Try again, a little closer to the mic.'; return; }
+    takes.push(tk); stored.floor = r.floor; cal = takes.length >= 3 ? calibrate(takes) : null;
+    persistSamples(); renderSamples(); st.textContent = `Sample ${takes.length} saved.`;
+  };
+  btn.textContent = 'Stop'; st.textContent = 'Stay quiet for a moment…';
+  try {
+    await Mic.start(fr => {
+      if (recording !== r || !isFinite(fr.db)) return;
+      if (r.phase === 'quiet') {
+        r.dbs.push(fr.db);
+        if (r.dbs.length >= 50) { r.floor = median(r.dbs); r.phase = 'chant'; st.textContent = 'Chant the mantra once now.'; }
+        return;
+      }
+      r.frames.push(fr);
+      if (fr.db > r.floor + 8) { r.voiced++; r.silentRun = 0; } else r.silentRun++;
+      if ((r.voiced >= 40 && r.silentRun >= 60) || r.frames.length > 25 * FPS) r.finish();
+    });
+  } catch (e) { recording = null; Mic.stop(); btn.textContent = 'Record a sample'; st.textContent = micError(e); }
+};
+
+// ----- Session -----
+const S = { on: false, count: 0, target: 108, start: 0, timerId: 0, counter: null, wake: null, finished: false };
+function buildMala(n) {
+  const svg = $('mala'), cx = 200, cy = 200, R = 178, beads = [];
+  const gap = (2 * Math.PI) / (n + 1.5), r = Math.min(9, Math.max(2.6, R * gap * 0.36));
+  let html = `<circle class="bead meru" cx="${cx}" cy="${cy - R}" r="${Math.min(12, r * 1.9)}"/>`;
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + gap * (i + 1.25);
+    html += `<circle class="bead" data-i="${i}" cx="${(cx + R * Math.cos(a)).toFixed(2)}" cy="${(cy + R * Math.sin(a)).toFixed(2)}" r="${r.toFixed(2)}"/>`;
+  }
+  svg.innerHTML = html;
+  return [...svg.querySelectorAll('circle[data-i]')];
+}
+let beadEls = [];
+function renderCount(flare) {
+  const t = S.target, c = S.count, n = beadEls.length;
+  const lit = t <= 108 ? c : (c > 0 && c % 108 === 0 ? 108 : c % 108);
+  beadEls.forEach((b, i) => b.classList.toggle('lit', i < lit));
+  if (flare && lit > 0) { const b = beadEls[lit - 1]; b.classList.remove('flare'); void b.getBBox(); b.classList.add('flare'); }
+  $('sCount').textContent = nf(c);
+  $('sOf').textContent = `of ${nf(t)}`;
+  $('sRound').textContent = t > 108 ? `Round ${Math.min(Math.ceil(t / 108), Math.floor(Math.max(c - 1, 0) / 108) + 1)} of ${Math.ceil(t / 108)}` : '';
+}
+async function startSession() {
+  if (!cal) return;
+  Object.assign(S, { on: true, count: 0, target: settings.target, start: 0, finished: false });
+  $('sMantra').textContent = settings.mantra;
+  beadEls = buildMala(Math.min(108, S.target));
+  renderCount(false);
+  $('sTimer').textContent = '0:00'; $('sCue').textContent = 'Settle in. Stay quiet for a moment…';
+  const el = $('session'); el.classList.remove('done'); el.classList.add('on');
+  try { if (el.requestFullscreen && !document.fullscreenElement) await el.requestFullscreen(); } catch (e) {}
+  try { if (navigator.wakeLock) S.wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+  const dbs = []; let phase = 'quiet';
+  try {
+    await Mic.start(fr => {
+      if (!S.on || S.finished || !isFinite(fr.db)) return;
+      if (phase === 'quiet') {
+        dbs.push(fr.db);
+        if (dbs.length >= 75) {
+          const floor = Math.min(median(dbs), stored.floor + 10);
+          S.counter = new Counter(takes, { thr: cal.base * settings.strict, floor, onCount });
+          phase = 'live'; S.start = performance.now();
+          $('sCue').textContent = 'Begin.'; setTimeout(() => { if ($('sCue').textContent === 'Begin.') $('sCue').textContent = ''; }, 2500);
+          S.timerId = setInterval(() => { $('sTimer').textContent = fmtTime((performance.now() - S.start) / 1000); }, 500);
+        }
+        return;
+      }
+      S.counter.feed(fr);
+    });
+  } catch (e) { $('sCue').textContent = micError(e); el.classList.add('done'); $('dTitle').textContent = 'Couldn’t start'; $('dCount').textContent = ''; $('dTime').textContent = micError(e); $('dPace').textContent = ''; S.on = false; }
+}
+function onCount() {
+  if (S.finished) return;
+  S.count++; renderCount(true);
+  if (S.count >= S.target) { finishSession(true); return; }
+  if (settings.bell && S.count % 108 === 0) bell(Mic.ctx);
+}
+function finishSession(reached) {
+  if (S.finished) return; S.finished = true;
+  clearInterval(S.timerId);
+  const secs = S.start ? (performance.now() - S.start) / 1000 : 0;
+  if (reached && Mic.ctx) { bell(Mic.ctx, 0, 528, 0.16); bell(Mic.ctx, 0.9, 660, 0.14); bell(Mic.ctx, 1.8, 792, 0.12); }
+  Mic.stop();
+  try { S.wake && S.wake.release(); } catch (e) {} S.wake = null;
+  if (S.count > 0) { const h = load(K.hist, []); h.unshift({ at: Date.now(), count: S.count, target: S.target, secs }); save(K.hist, h.slice(0, 200)); }
+  $('dTitle').textContent = reached ? 'Target reached' : 'Session ended';
+  $('dCount').textContent = `${nf(S.count)} chants`;
+  $('dTime').textContent = reached ? `in ${fmtLong(secs)}` : `of ${nf(S.target)}, in ${fmtLong(secs)}`;
+  $('dPace').textContent = S.count > 1 ? `About ${(secs / S.count).toFixed(1)} s per chant` : '';
+  $('session').classList.add('done');
+  renderHistory();
+}
+function closeSession() {
+  S.on = false; $('session').classList.remove('on', 'done');
+  try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+}
+$('startBtn').onclick = startSession;
+$('endBtn').onclick = () => finishSession(false);
+$('dBack').onclick = closeSession;
+document.addEventListener('keydown', e => {
+  if (!S.on) return;
+  if (e.key === 'Escape') { if (!S.finished) finishSession(false); else closeSession(); }
+});
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && S.on && !S.finished && navigator.wakeLock) { try { S.wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
+});
+
+hydrate(); renderSamples(); renderHistory(); syncChips();
+</script>
+</body></html>
