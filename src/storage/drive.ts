@@ -29,6 +29,7 @@ export const SAMPLES_FOLDER = 'samples';
 const API = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
+export const REQUEST_TIMEOUT_MS = 30_000;
 
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
@@ -38,14 +39,34 @@ export class DriveClient implements DriveApi {
     private readonly getToken: TokenProvider,
     private readonly fetchFn: typeof fetch = (...args) => fetch(...args),
     private readonly interactive = false,
+    private readonly timeoutMs = REQUEST_TIMEOUT_MS,
   ) {}
+
+  /** fetch, bounded by timeoutMs (the signal also cuts off a stalled body read); a timeout becomes DriveError(0). */
+  private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+    const signal = AbortSignal.timeout(this.timeoutMs);
+    const timeoutError = () => new DriveError(0, `Drive request timed out after ${this.timeoutMs / 1000} s`);
+    let onAbort = () => {};
+    // Raced as well, so a fetch that ignores its signal still cannot hang the sync.
+    const timedOut = new Promise<never>((_, reject) => {
+      onAbort = () => reject(timeoutError());
+      signal.addEventListener('abort', onAbort, { once: true });
+    });
+    try {
+      return await Promise.race([this.fetchFn(url, { ...init, signal }), timedOut]);
+    } catch (err) {
+      throw signal.aborted ? timeoutError() : err;
+    } finally {
+      signal.removeEventListener('abort', onAbort);
+    }
+  }
 
   private async request(url: string, init: RequestInit = {}): Promise<Response> {
     for (let attempt = 0; attempt < 2; attempt++) {
       const token = await this.getToken({ forceRefresh: attempt > 0, interactive: this.interactive });
       const headers = new Headers(init.headers);
       headers.set('Authorization', `Bearer ${token}`);
-      const res = await this.fetchFn(url, { ...init, headers });
+      const res = await this.fetchWithTimeout(url, { ...init, headers });
       if (res.status === 401 && attempt === 0) continue;
       if (!res.ok) throw new DriveError(res.status, `Drive request failed (${res.status})`);
       return res;
@@ -55,7 +76,8 @@ export class DriveClient implements DriveApi {
 
   async findFolder(name: string, parentId: string): Promise<string | null> {
     const q = `name='${esc(name)}' and mimeType='${FOLDER_MIME}' and '${esc(parentId)}' in parents and trashed=false`;
-    const res = await this.request(`${API}?q=${encodeURIComponent(q)}&fields=${encodeURIComponent('files(id)')}`);
+    // Oldest first, so duplicate folders always resolve to the same one.
+    const res = await this.request(`${API}?q=${encodeURIComponent(q)}&fields=${encodeURIComponent('files(id)')}&orderBy=createdTime`);
     const { files } = (await res.json()) as { files: { id: string }[] };
     return files[0]?.id ?? null;
   }

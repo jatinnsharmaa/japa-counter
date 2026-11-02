@@ -3,6 +3,7 @@ import type { TokenProvider } from './drive';
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 export const GIS_SRC = 'https://accounts.google.com/gsi/client';
 const EXPIRY_MARGIN_MS = 60_000;
+export const TOKEN_TIMEOUT_MS = 120_000;
 
 interface TokenResponse {
   access_token?: string;
@@ -27,11 +28,16 @@ export function loadGis(): Promise<GoogleOAuth2> {
     const s = document.createElement('script');
     s.src = GIS_SRC;
     s.async = true;
-    s.onload = () => resolve((window as unknown as { google: { accounts: { oauth2: GoogleOAuth2 } } }).google.accounts.oauth2);
-    s.onerror = () => {
+    const fail = () => {
       gisPromise = null;
       reject(new Error('Could not load Google sign-in'));
     };
+    s.onload = () => {
+      const oauth2 = (window as unknown as { google?: { accounts?: { oauth2?: GoogleOAuth2 } } }).google?.accounts?.oauth2;
+      if (oauth2) resolve(oauth2);
+      else fail();
+    };
+    s.onerror = fail;
     document.head.appendChild(s);
   });
   return gisPromise;
@@ -39,16 +45,17 @@ export function loadGis(): Promise<GoogleOAuth2> {
 
 export function createGoogleTokenProvider(
   clientId: string,
-  deps: { loadGis?: () => Promise<GoogleOAuth2>; now?: () => number } = {},
+  deps: { loadGis?: () => Promise<GoogleOAuth2>; now?: () => number; tokenTimeoutMs?: number } = {},
 ): TokenProvider {
   const load = deps.loadGis ?? loadGis;
   const now = deps.now ?? Date.now;
+  const timeoutMs = deps.tokenTimeoutMs ?? TOKEN_TIMEOUT_MS;
   let token: { value: string; expiresAt: number } | null = null;
   let granted = false;
 
   const request = async (): Promise<string> => {
     const oauth2 = await load();
-    return new Promise((resolve, reject) => {
+    return new Promise<string>((resolve, reject) => {
       const client = oauth2.initTokenClient({
         client_id: clientId,
         scope: DRIVE_SCOPE,
@@ -64,10 +71,23 @@ export function createGoogleTokenProvider(
     });
   };
 
+  /** Bounds script loading plus the popup, so an abandoned or stuck sign-in cannot hold the setup screen. */
+  const requestWithTimeout = async (): Promise<string> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Google sign-in timed out')), timeoutMs);
+    });
+    try {
+      return await Promise.race([request(), timedOut]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   return async ({ forceRefresh, interactive }) => {
     if (!forceRefresh && token && now() < token.expiresAt) return token.value;
     // Only a click may open the Google popup; background syncs use a cached token or stop.
     if (!interactive) throw new Error('Drive needs a click to reconnect');
-    return request();
+    return requestWithTimeout();
   };
 }

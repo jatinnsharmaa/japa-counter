@@ -82,12 +82,14 @@ async function runSync({ db, drive, shouldContinue = () => true, maxLocalSamples
 
   // File ids the manifest must drop: deleted ones, and old ids of samples uploaded again below.
   const dropped = new Set(deleted);
+  const liveFileIds = new Set(remoteFileIds); // plus files uploaded below
   for (const s of await listSamples(db)) {
     const fileGone = s.synced && !!s.driveFileId && !remoteFileIds.has(s.driveFileId) && !deleted.has(s.driveFileId);
     if (s.synced && !fileGone) continue;
     step();
     const fileId = await drive.uploadFile(folder, fileNameFor(s.createdAt, s.id), 'audio/wav', s.wav);
     if (await markSynced(db, s.id, fileId)) {
+      liveFileIds.add(fileId);
       if (s.driveFileId) dropped.add(s.driveFileId);
       report.uploaded++;
     } else {
@@ -103,6 +105,13 @@ async function runSync({ db, drive, shouldContinue = () => true, maxLocalSamples
   // Deletes queued since the delete step must not be downloaded again or kept in the manifest.
   for (const id of await listPendingDeletes(db)) dropped.add(id);
   const localIds = new Set(local.map((s) => s.id));
+  // The remote side wins merge conflicts, except where its file is gone and ours is live (e.g. a re-upload
+  // whose run failed before the manifest write): then the dead remote entry is dropped.
+  const liveLocalFile = new Map(local.filter((s) => s.synced && s.driveFileId && liveFileIds.has(s.driveFileId)).map((s) => [s.id, s.driveFileId]));
+  for (const e of remote.samples) {
+    const ours = liveLocalFile.get(e.sampleId);
+    if (ours && ours !== e.fileId && !liveFileIds.has(e.fileId)) dropped.add(e.fileId);
+  }
   const manifest = mergeManifests(remote, { version: 1, samples: local.filter((s) => s.synced && s.driveFileId).map(entryFromSample) }, dropped);
 
   let localCount = local.length;

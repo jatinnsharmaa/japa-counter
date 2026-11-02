@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { createGoogleTokenProvider, DRIVE_SCOPE, type GoogleOAuth2 } from '../../../src/storage/auth';
+// @vitest-environment happy-dom
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createGoogleTokenProvider, DRIVE_SCOPE, loadGis, type GoogleOAuth2 } from '../../../src/storage/auth';
 
 function fakeGis(reply: () => { access_token?: string; expires_in?: number; error?: string }) {
   const requests: (string | undefined)[] = [];
@@ -61,9 +62,39 @@ describe('createGoogleTokenProvider', () => {
     expect(f.requests).toEqual(['consent']);
   });
 
+  it('gives up on a sign-in that never calls back', async () => {
+    const gis: GoogleOAuth2 = { initTokenClient: () => ({ requestAccessToken: () => {} }) };
+    const get = createGoogleTokenProvider('cid', { loadGis: async () => gis, tokenTimeoutMs: 20 });
+    await expect(get({ forceRefresh: false, interactive: true })).rejects.toThrow(/timed out/);
+  });
+
+  it('gives up when Google sign-in never loads', async () => {
+    const get = createGoogleTokenProvider('cid', { loadGis: () => new Promise<GoogleOAuth2>(() => {}), tokenTimeoutMs: 20 });
+    await expect(get({ forceRefresh: false, interactive: true })).rejects.toThrow(/timed out/);
+  });
+
   it('rejects on an OAuth error', async () => {
     const f = fakeGis(() => ({ error: 'access_denied' }));
     const get = createGoogleTokenProvider('cid', { loadGis: async () => f.gis });
     await expect(get({ forceRefresh: false, interactive: true })).rejects.toThrow('access_denied');
+  });
+});
+
+describe('loadGis', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (window as { google?: unknown }).google;
+  });
+
+  it('rejects when the script loads without google.accounts.oauth2, and can retry', async () => {
+    // Stand in for the network: "load" the script without running it.
+    vi.spyOn(document.head, 'appendChild').mockImplementation(<T extends Node>(node: T) => {
+      queueMicrotask(() => (node as unknown as HTMLScriptElement).onload?.(new Event('load')));
+      return node;
+    });
+    await expect(loadGis()).rejects.toThrow('Could not load Google sign-in');
+    const oauth2 = { initTokenClient: () => ({ requestAccessToken: () => {} }) };
+    (window as { google?: unknown }).google = { accounts: { oauth2 } };
+    await expect(loadGis()).resolves.toBe(oauth2);
   });
 });

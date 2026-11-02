@@ -164,6 +164,27 @@ describe('syncSamples under races', () => {
     expect(entries[0].fileId).toBe((await getSample(db, 'sample-127'))!.driveFileId);
   });
 
+  it('repairs a manifest entry left on a missing file when the re-upload run failed before the manifest write', async () => {
+    const db = await fresh();
+    await putSample(db, makeSampleRecord(130));
+    await putSample(db, makeSampleRecord(131));
+    const drive = new FakeDrive();
+    await syncSamples({ db, drive, isOnline: () => true });
+    drive.files.delete((await getSample(db, 'sample-130'))!.driveFileId!);
+    drive.onCall = (op, name) => {
+      if (op === 'uploadFile' && name === 'manifest.json') throw new Error('network');
+    };
+    await expect(syncSamples({ db, drive, isOnline: () => true })).rejects.toThrow('network');
+    drive.onCall = null;
+    await syncSamples({ db, drive, isOnline: () => true });
+    const entries = parseManifest(drive.manifestText()!).samples;
+    expect(entries.map((e) => e.sampleId)).toEqual(['sample-130', 'sample-131']);
+    expect(entries.every((e) => drive.files.has(e.fileId))).toBe(true);
+    const restored = await fresh();
+    await syncSamples({ db: restored, drive, isOnline: () => true });
+    expect((await listSamples(restored)).map((s) => s.id)).toEqual(['sample-130', 'sample-131']);
+  });
+
   it('downloads at most maxLocalSamples and reports the rest', async () => {
     const rec = makeSampleRecord(129);
     const drive = new FakeDrive();

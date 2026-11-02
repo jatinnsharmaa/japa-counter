@@ -84,4 +84,24 @@ describe('DriveClient', () => {
     await drive.findFolder("O'Brien", 'root');
     expect(decodeURIComponent(calls[0].url)).toContain("name='O\\'Brien'");
   });
+
+  it('picks the oldest folder when there are duplicates', async () => {
+    const { fn, calls } = mockFetch(() => json({ files: [{ id: 'OLDEST' }, { id: 'NEWER' }] }));
+    expect(await new DriveClient(tokens(), fn).findFolder('samples', 'R')).toBe('OLDEST');
+    expect(new URL(calls[0].url).searchParams.get('orderBy')).toBe('createdTime');
+  });
+
+  it('gives up on a request that stalls, with a timeout DriveError', async () => {
+    const stalled = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch; // ignores its abort signal too
+    const err = await new DriveClient(tokens(), stalled, false, 20).listFiles('F').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(DriveError);
+    expect(err).toMatchObject({ status: 0, message: expect.stringMatching(/timed out/) });
+  });
+
+  it('passes an abort signal to fetch', async () => {
+    const { fn } = mockFetch(() => json({ files: [] }));
+    await new DriveClient(tokens(), fn).listFiles('F');
+    const init = (fn as unknown as { mock: { calls: [unknown, RequestInit][] } }).mock.calls[0][1];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
 });

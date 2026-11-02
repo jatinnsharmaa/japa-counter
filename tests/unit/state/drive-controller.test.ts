@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it, vi } from 'vitest';
 import { createDriveController } from '../../../src/state/drive-controller';
 import { getMeta, setMeta } from '../../../src/storage/db';
+import { DriveClient } from '../../../src/storage/drive';
 import { FakeDrive } from '../../helpers/fake-drive';
 import { makeSampleRecord } from '../../helpers/samples';
 import { makeStore } from '../../helpers/store';
@@ -162,6 +163,22 @@ describe('drive controller', () => {
     await c.start();
     expect(c.status.value).toBe('error');
     expect(store.samples.value[0].synced).toBe(true);
+    c.stop();
+  });
+
+  it('a stalled Drive request ends the sync in the paused state', async () => {
+    const store = await makeStore([124]);
+    await setMeta(store.db, 'driveConnected', true);
+    const stalled = (() => new Promise<Response>(() => {})) as unknown as typeof fetch;
+    const c = createDriveController(store, {
+      clientId: 'cid',
+      makeDrive: (interactive) => new DriveClient(async () => 'tok', stalled, interactive, 20),
+      isOnline: () => true,
+      events: new EventTarget(),
+    });
+    await c.start();
+    expect(c.status.value).toBe('error');
+    expect(c.message.value).toBe('Drive sync paused. Use Sync now to retry.');
     c.stop();
   });
 

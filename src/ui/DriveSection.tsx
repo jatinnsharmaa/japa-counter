@@ -25,7 +25,7 @@ export function DriveSection() {
     <div class="drive">
       <p>Saved to Drive: Japa Counter/samples.</p>
       {line && <p class="hint" role="status">{line}</p>}
-      {left > 0 && <p class="hint">{`${left} samples in Drive weren’t downloaded. ${MAX_SAMPLES} is the most the counter uses.`}</p>}
+      {left > 0 && <p class="hint">{`${left === 1 ? '1 sample in Drive wasn’t' : `${left} samples in Drive weren’t`} downloaded. ${MAX_SAMPLES} is the most the counter uses.`}</p>}
       <button type="button" disabled={syncing} onClick={() => void drive.syncNow()}>Sync now</button>
     </div>
   );

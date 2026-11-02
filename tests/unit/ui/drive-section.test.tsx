@@ -38,4 +38,12 @@ describe('DriveSection', () => {
     expect(screen.getByText('Saved to Drive: Japa Counter/samples.')).toBeTruthy();
     expect(screen.getByText('2 samples in Drive weren’t downloaded. 10 is the most the counter uses.')).toBeTruthy();
   });
+
+  it('uses the singular when one Drive sample was left out', async () => {
+    const drive = await makeController();
+    await drive.syncNow();
+    drive.notDownloaded.value = 1;
+    renderSection(drive);
+    expect(screen.getByText('1 sample in Drive wasn’t downloaded. 10 is the most the counter uses.')).toBeTruthy();
+  });
 });
