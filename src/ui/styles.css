@@ -40,3 +40,18 @@ button.start { align-self: flex-start; padding: 0.6rem 2rem; border-color: curre
 .settings legend { color: var(--setup-muted); font-size: 0.95rem; margin-bottom: 0.4rem; }
 .radio, .checkbox { display: block; padding: 0.15rem 0; }
 .history { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: var(--setup-muted); }
+
+.recorder { display: flex; flex-direction: column; gap: 0.6rem; align-items: flex-start; }
+.countdown { font-size: 2rem; margin: 0; font-variant-numeric: tabular-nums; }
+.level { width: 100%; height: 2px; background: var(--setup-line); overflow: hidden; }
+.level span { display: block; height: 100%; background: currentColor; transform-origin: left; transition: transform 60ms linear; }
+.review { display: flex; flex-direction: column; gap: 0.6rem; }
+.review .row { display: flex; gap: 0.6rem; }
+.waveform { width: 100%; height: 48px; fill: currentColor; }
+.samples { list-style: none; padding: 0; margin: 1rem 0 0; }
+.sample-row { display: flex; flex-wrap: wrap; gap: 0.9rem; align-items: baseline; padding: 0.45rem 0; border-bottom: 1px solid var(--setup-line); }
+.sample-row a { color: inherit; }
+.sample-dur, .synced { color: var(--setup-muted); font-variant-numeric: tabular-nums; }
+.sample-row .flag { flex-basis: 100%; margin: 0; }
+button.icon { border: 0; padding: 0 0.2rem; }
+@media (prefers-reduced-motion: reduce) { .level span { transition: none; } }

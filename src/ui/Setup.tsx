@@ -1,5 +1,8 @@
 import { useState } from 'preact/hooks';
+import type { OpenEngine } from '../audio/protocol';
 import { isValidTarget, MIN_SAMPLES, useStore } from '../state/store';
+import { Recorder } from './Recorder';
+import { SampleRow } from './SampleRow';
 import { Settings } from './Settings';
 
 const PRESETS = [108, 1008];
@@ -10,7 +13,7 @@ function hintFor(n: number): string | null {
   return null;
 }
 
-export function Setup() {
+export function Setup({ openEngine }: { openEngine: OpenEngine }) {
   const store = useStore();
   const s = store.settings.value;
   const [targetText, setTargetText] = useState(String(s.target));
@@ -36,6 +39,14 @@ export function Setup() {
 
       <section aria-labelledby="samples-h">
         <h2 id="samples-h">Voice samples</h2>
+        <Recorder openEngine={openEngine} />
+        {store.samples.value.length > 0 && (
+          <ul class="samples">
+            {store.samples.value.map((s, i) => (
+              <SampleRow key={s.id} sample={s} index={i} flagged={store.outliers.value[i] ?? false} onDelete={() => void store.removeSample(s.id)} />
+            ))}
+          </ul>
+        )}
         {hint && <p class="hint">{hint}</p>}
       </section>
 

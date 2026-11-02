@@ -5,10 +5,11 @@ import { describe, expect, it } from 'vitest';
 import { StoreContext, type Store } from '../../../src/state/store';
 import { getSettings } from '../../../src/storage/db';
 import { Setup } from '../../../src/ui/Setup';
+import { FakeEngine } from '../../helpers/fake-engine';
 import { makeSampleRecord } from '../../helpers/samples';
 import { makeStore } from '../../helpers/store';
 
-const renderSetup = (store: Store) => render(<StoreContext.Provider value={store}><Setup /></StoreContext.Provider>);
+const renderSetup = (store: Store) => render(<StoreContext.Provider value={store}><Setup openEngine={async () => new FakeEngine()} /></StoreContext.Provider>);
 
 describe('Setup', () => {
   it('shows the default mantra and target 108', async () => {
