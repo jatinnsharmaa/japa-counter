@@ -1,0 +1,11 @@
+export const SR = 16000;
+export const FRAME = 512; // 32 ms
+export const HOP = 320; // 20 ms
+export const NFFT = 512;
+export const NMEL = 40;
+export const NCEP = 12; // coefficients 1..12; c0 dropped so loudness does not matter
+export const FPS = SR / HOP; // 50 frames per second
+export const MEL_LO_HZ = 60;
+export const MEL_HI_HZ = 7600;
+export const PRE_EMPHASIS = 0.97;
+export const VOICED_DB = 8; // a frame is voiced when its energy is more than 8 dB above the noise floor
