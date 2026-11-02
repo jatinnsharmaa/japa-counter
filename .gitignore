@@ -6,3 +6,5 @@ playwright-report/
 .env.local
 .superpowers/
 .DS_Store
+tests/fixtures/synthetic/
+dev-dist/
