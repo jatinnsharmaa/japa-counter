@@ -14,7 +14,7 @@ describe('syncSamples', () => {
     await putSample(db, makeSampleRecord(101));
     const drive = new FakeDrive();
     const spy = vi.spyOn(drive, 'ensureSamplesFolder');
-    expect(await syncSamples({ db, drive, isOnline: () => false })).toEqual({ uploaded: 0, downloaded: 0, deleted: 0, notDownloaded: 0, skipped: true, aborted: false });
+    expect(await syncSamples({ db, drive, isOnline: () => false })).toEqual({ uploaded: 0, downloaded: 0, deleted: 0, notDownloaded: 0, unreadable: 0, skipped: true, aborted: false });
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -70,6 +70,36 @@ describe('syncSamples', () => {
     expect(await listPendingDeletes(db)).toEqual([]);
     expect(parseManifest(drive.manifestText()!).samples).toEqual([]);
     expect((await listSamples(db))).toEqual([]);
+  });
+
+  it('skips a corrupt WAV in Drive, restores the others and reports it as unreadable', async () => {
+    const drive = new FakeDrive();
+    const a = await fresh();
+    await putSample(a, makeSampleRecord(140));
+    await putSample(a, makeSampleRecord(141));
+    await syncSamples({ db: a, drive, isOnline: () => true });
+    const bad = (await getSample(a, 'sample-140'))!.driveFileId!;
+    drive.files.set(bad, { ...drive.files.get(bad)!, body: 'not a wav file' });
+    const b = await fresh();
+    const report = await syncSamples({ db: b, drive, isOnline: () => true });
+    expect(report.downloaded).toBe(1);
+    expect(report.unreadable).toBe(1);
+    expect((await listSamples(b)).map((s) => s.id)).toEqual(['sample-141']);
+    expect(parseManifest(drive.manifestText()!).samples).toHaveLength(2);
+  });
+
+  it('restores the valid entries of a manifest with a malformed entry', async () => {
+    const rec = makeSampleRecord(142);
+    const drive = new FakeDrive();
+    drive.seedSamples(2, rec.wav, rec);
+    const m = JSON.parse(drive.manifestText()!) as { version: 1; samples: Record<string, unknown>[] };
+    m.samples.push({ fileId: 'SEED0', createdAt: 1, durationSec: 1, trimStart: 0, trimEnd: 1, floor: -60, engineVersion: 1 });
+    m.samples.push({ ...m.samples[1], sampleId: 'bad-floor', floor: 'loud' });
+    drive.files.set('MANIFEST', { ...drive.files.get('MANIFEST')!, body: JSON.stringify(m) });
+    const db = await fresh();
+    const report = await syncSamples({ db, drive, isOnline: () => true });
+    expect(report.downloaded).toBe(2);
+    expect((await listSamples(db)).map((s) => s.id)).toEqual(['seed-0', 'seed-1']);
   });
 
   it('aborts without overwriting a corrupt remote manifest', async () => {

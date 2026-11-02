@@ -46,4 +46,16 @@ describe('DriveSection', () => {
     renderSection(drive);
     expect(screen.getByText('1 sample in Drive wasn’t downloaded. 10 is the most the counter uses.')).toBeTruthy();
   });
+
+  it('says how many Drive samples could not be read', async () => {
+    const drive = await makeController();
+    await drive.syncNow();
+    drive.unreadable.value = 2;
+    const view = renderSection(drive);
+    expect(screen.getByText('2 samples in Drive couldn’t be read.')).toBeTruthy();
+    view.unmount();
+    drive.unreadable.value = 1;
+    renderSection(drive);
+    expect(screen.getByText('1 sample in Drive couldn’t be read.')).toBeTruthy();
+  });
 });

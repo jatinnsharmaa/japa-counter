@@ -192,4 +192,17 @@ describe('drive controller', () => {
     expect(store.samples.value).toHaveLength(10);
     expect(c.notDownloaded.value).toBe(1);
   });
+
+  it('reports Drive samples that could not be read', async () => {
+    const store = await makeStore();
+    const rec = makeSampleRecord(124);
+    const drive = new FakeDrive();
+    drive.seedSamples(3, rec.wav, rec);
+    drive.files.set('SEED1', { ...drive.files.get('SEED1')!, body: 'garbage' });
+    const c = createDriveController(store, { clientId: 'cid', makeDrive: () => drive, isOnline: () => true, events: new EventTarget() });
+    await c.syncNow();
+    expect(c.status.value).toBe('idle');
+    expect(store.samples.value).toHaveLength(2);
+    expect(c.unreadable.value).toBe(1);
+  });
 });

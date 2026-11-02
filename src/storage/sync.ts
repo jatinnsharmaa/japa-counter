@@ -9,6 +9,8 @@ export interface SyncReport {
   deleted: number;
   /** Manifest entries with a Drive file that were not restored because the local cap was reached. */
   notDownloaded: number;
+  /** Drive samples skipped because their file could not be downloaded or rebuilt (corrupt, wrong rate, no chant). */
+  unreadable: number;
   skipped: boolean;
   /** True when shouldContinue turned false and the sync stopped before its next Drive call. */
   aborted: boolean;
@@ -46,7 +48,7 @@ async function readRemoteManifest(drive: DriveApi, fileId: string): Promise<Mani
 
 /** Setup-screen sync: deletes, uploads, manifest merge, downloads. Sessions never call this. */
 export async function syncSamples(deps: SyncDeps): Promise<SyncReport> {
-  const report: SyncReport = { uploaded: 0, downloaded: 0, deleted: 0, notDownloaded: 0, skipped: false, aborted: false };
+  const report: SyncReport = { uploaded: 0, downloaded: 0, deleted: 0, notDownloaded: 0, unreadable: 0, skipped: false, aborted: false };
   if (!deps.isOnline()) return { ...report, skipped: true };
   try {
     await runSync(deps, report);
@@ -122,10 +124,16 @@ async function runSync({ db, drive, shouldContinue = () => true, maxLocalSamples
       continue;
     }
     step();
-    const wav = await drive.downloadFile(e.fileId);
-    const rec = rebuildFromWav({ id: e.sampleId, createdAt: e.createdAt, wav, floor: e.floor, synced: true, driveFileId: e.fileId });
-    if (!rec) continue;
-    await putSample(db, rec);
+    // One bad file must not stop the rest of the sync: skip it and report it.
+    try {
+      const wav = await drive.downloadFile(e.fileId);
+      const rec = rebuildFromWav({ id: e.sampleId, createdAt: e.createdAt, wav, floor: e.floor, synced: true, driveFileId: e.fileId });
+      if (!rec) throw new Error('No chant found in the sample');
+      await putSample(db, rec);
+    } catch {
+      report.unreadable++;
+      continue;
+    }
     localCount++;
     report.downloaded++;
   }

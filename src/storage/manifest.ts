@@ -37,10 +37,19 @@ export function mergeManifests(a: Manifest, b: Manifest, deletedFileIds: Readonl
   return { version: 1, samples: [...byId.values()].sort((x, y) => x.createdAt - y.createdAt) };
 }
 
+const NUMERIC_FIELDS = ['createdAt', 'durationSec', 'trimStart', 'trimEnd', 'floor', 'engineVersion'] as const;
+
+function isValidEntry(e: unknown): e is ManifestEntry {
+  if (typeof e !== 'object' || e === null) return false;
+  const r = e as Record<string, unknown>;
+  return typeof r.sampleId === 'string' && typeof r.fileId === 'string' && NUMERIC_FIELDS.every((k) => Number.isFinite(r[k]));
+}
+
+/** Keeps only well-formed entries; an unreadable manifest parses as empty. */
 export function parseManifest(text: string): Manifest {
   try {
-    const m = JSON.parse(text) as Partial<Manifest>;
-    return Array.isArray(m.samples) ? { version: 1, samples: m.samples } : emptyManifest();
+    const m = JSON.parse(text) as { samples?: unknown } | null;
+    return Array.isArray(m?.samples) ? { version: 1, samples: m.samples.filter(isValidEntry) } : emptyManifest();
   } catch {
     return emptyManifest();
   }

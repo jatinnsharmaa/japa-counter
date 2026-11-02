@@ -25,6 +25,24 @@ describe('manifest', () => {
     expect(mergeManifests(a, emptyManifest(), new Set(['f1'])).samples.map((e) => e.sampleId)).toEqual(['s2']);
   });
 
+  it('drops malformed entries and keeps the valid ones', () => {
+    const good = entry('s1', 'f1', 1);
+    const samples = [
+      good,
+      { ...good, sampleId: 's2', fileId: 7 },
+      { ...good, sampleId: undefined },
+      { ...good, sampleId: 's3', floor: 'loud' },
+      { ...good, sampleId: 's4', createdAt: null },
+      { ...good, sampleId: 's5', trimStart: Number.NaN },
+      { ...good, sampleId: 's6', trimEnd: '1' },
+      { ...good, sampleId: 's7', durationSec: undefined },
+      { ...good, sampleId: 's8', engineVersion: {} },
+      null,
+      'junk',
+    ];
+    expect(parseManifest(JSON.stringify({ version: 1, samples })).samples).toEqual([good]);
+  });
+
   it('parses tolerantly', () => {
     expect(parseManifest('not json')).toEqual(emptyManifest());
     expect(parseManifest(JSON.stringify({ version: 1, samples: [entry('s1', 'f1', 1)] })).samples).toHaveLength(1);

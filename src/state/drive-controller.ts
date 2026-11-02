@@ -16,6 +16,8 @@ export interface DriveController {
   message: Signal<string | null>;
   /** Drive samples not restored because the local store is at MAX_SAMPLES. */
   notDownloaded: Signal<number>;
+  /** Drive samples skipped by the last sync because they could not be read. */
+  unreadable: Signal<number>;
   connect(): Promise<void>;
   syncNow(): Promise<void>;
   start(): Promise<void>;
@@ -39,6 +41,7 @@ export function createDriveController(store: Store, deps: Deps): DriveController
   const lastSync = signal<number | null>(null);
   const message = signal<string | null>(null);
   const notDownloaded = signal(0);
+  const unreadable = signal(0);
   const isOnline = deps.isOnline ?? (() => navigator.onLine);
   const cleanups: (() => void)[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -71,6 +74,7 @@ export function createDriveController(store: Store, deps: Deps): DriveController
       }
       lastSync.value = Date.now();
       notDownloaded.value = report.notDownloaded;
+      unreadable.value = report.unreadable;
       message.value = null;
       status.value = 'idle';
     } catch {
@@ -103,6 +107,7 @@ export function createDriveController(store: Store, deps: Deps): DriveController
     lastSync,
     message,
     notDownloaded,
+    unreadable,
     connect: () => run(true),
     syncNow: () => run(true),
     async start() {
