@@ -5,13 +5,14 @@ import { formatSummary, formatTimer, SessionState, type SessionResult } from '..
 import { useStore } from '../state/store';
 
 type Phase = 'quiet' | 'live' | 'done';
-const CHIME_TAIL_MS = 4000; // keep the audio context alive while the chime rings
+const CHIME_TAIL_MS = 4500; // keep the audio context alive while the chime rings
 
 export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit: () => void }) {
   const store = useStore();
   const settings = store.settings.value;
   const rootRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef(new SessionState(settings.target, settings.bell, () => performance.now()));
+  const stateRef = useRef<SessionState | null>(null);
+  stateRef.current ??= new SessionState(settings.target, settings.bell, () => performance.now());
   const phaseRef = useRef<Phase>('quiet');
   const [phase, setPhaseState] = useState<Phase>('quiet');
   const [count, setCount] = useState(0);
@@ -19,6 +20,7 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
   const [bump, setBump] = useState(0);
   const [chimed, setChimed] = useState(false);
   const [result, setResult] = useState<SessionResult | null>(null);
+  const [failed, setFailed] = useState(false);
 
   const setPhase = (p: Phase) => {
     phaseRef.current = p;
@@ -28,7 +30,7 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
   // Layout effect: Preact 11 defers passive-effect cleanups on unmount until after paint,
   // and the microphone must be released as soon as the session screen goes away.
   useLayoutEffect(() => {
-    const st = stateRef.current;
+    const st = stateRef.current as SessionState;
     let engine: EngineHandle | null = null;
     let unsub = () => {};
     let wake: WakeLockSentinel | null = null;
@@ -45,7 +47,10 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
       try {
         const w = (await navigator.wakeLock?.request('screen')) ?? null;
         if (cancelled || st.ended) void w?.release().catch(() => {});
-        else wake = w;
+        else {
+          releaseWake();
+          wake = w;
+        }
       } catch {
         /* wake lock is optional */
       }
@@ -63,12 +68,13 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
       window.setTimeout(() => void e?.close(), CHIME_TAIL_MS);
       releaseWake();
       if (r.count > 0) {
-        void store.recordSession({ at: Date.now(), count: r.count, target: r.target, secs: r.secs, avgSecsPerChant: r.avgSecsPerChant });
+        void store.recordSession({ at: Date.now(), count: r.count, target: r.target, secs: r.secs, avgSecsPerChant: r.avgSecsPerChant }).catch(() => {});
       }
     };
 
     const onKey = (e: KeyboardEvent) => {
       if (phaseRef.current === 'done') {
+        if (e.repeat) return;
         if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
         onExit();
       } else if (e.key === 'Escape') {
@@ -87,9 +93,22 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
 
     void (async () => {
       // Fullscreen needs the Start click's user activation, so request it first and don't wait on it.
-      void rootRef.current?.requestFullscreen?.().catch(() => {});
+      try {
+        void Promise.resolve(rootRef.current?.requestFullscreen?.()).catch(() => {});
+      } catch {
+        /* fullscreen is optional */
+      }
       void acquireWake();
-      const e = await openEngine();
+      let e: EngineHandle;
+      try {
+        e = await openEngine();
+      } catch {
+        if (!cancelled) {
+          setFailed(true);
+          end();
+        }
+        return;
+      }
       if (cancelled) {
         void e.close();
         return;
@@ -148,6 +167,8 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
     >
       {phase === 'quiet' ? (
         <p class="session-quiet">Stay quiet</p>
+      ) : failed ? (
+        <div />
       ) : (
         <div class="mantra">
           <p class="mantra-dev" lang="sa">{settings.mantraDevanagari}</p>
@@ -156,7 +177,7 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
       )}
       <div class="session-meta">
         {phase === 'done' && result ? (
-          <p class="summary" data-testid="summary">{formatSummary(result.count, result.secs)}</p>
+          <p class="summary" data-testid="summary">{failed ? 'Microphone unavailable. Press any key to go back.' : formatSummary(result.count, result.secs)}</p>
         ) : phase === 'live' ? (
           <>
             <p class={bump > 0 ? 'count bump' : 'count'} key={bump}>{count} / {settings.target}</p>

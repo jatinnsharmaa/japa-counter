@@ -116,4 +116,47 @@ describe('Session', () => {
     expect(engine.listenerCount()).toBe(0);
     expect(engine.sent).toEqual([]);
   });
+
+  it('shows a quiet message and saves nothing when the microphone cannot be opened', async () => {
+    const onExit = vi.fn();
+    render(
+      <StoreContext.Provider value={store}>
+        <Session openEngine={() => Promise.reject(new DOMException('denied', 'NotAllowedError'))} onExit={onExit} />
+      </StoreContext.Provider>,
+    );
+    const root = screen.getByTestId('session');
+    await waitFor(() => expect(root.dataset.phase).toBe('done'));
+    expect(screen.getByTestId('summary').textContent).toBe('Microphone unavailable. Press any key to go back.');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(store.history.value).toHaveLength(0);
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(onExit).toHaveBeenCalledOnce();
+  });
+
+  it('still opens the engine when requestFullscreen returns undefined or throws', async () => {
+    const original = HTMLElement.prototype.requestFullscreen;
+    try {
+      for (const impl of [() => undefined, () => { throw new Error('nope'); }]) {
+        HTMLElement.prototype.requestFullscreen = impl as unknown as typeof original;
+        const engine = new FakeEngine();
+        const view = render(
+          <StoreContext.Provider value={store}><Session openEngine={async () => engine} onExit={vi.fn()} /></StoreContext.Provider>,
+        );
+        await waitFor(() => expect(engine.sentTypes()).toEqual(['session-start']));
+        view.unmount();
+      }
+    } finally {
+      HTMLElement.prototype.requestFullscreen = original;
+    }
+  });
+
+  it('ignores key repeat when dismissing the summary', async () => {
+    const { engine, onExit } = await start(108);
+    await act(() => engine.emit({ type: 'session-ready', floor: -60 }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(window, { key: 'Escape', repeat: true });
+    expect(onExit).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onExit).toHaveBeenCalledOnce();
+  });
 });
