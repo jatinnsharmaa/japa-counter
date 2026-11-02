@@ -117,6 +117,32 @@ describe('Session', () => {
     expect(engine.sent).toEqual([]);
   });
 
+  it('closes an engine that arrives after Escape ended the session, without starting it', async () => {
+    const engine = new FakeEngine();
+    let resolveOpen!: (e: EngineHandle) => void;
+    const opening = new Promise<EngineHandle>((r) => (resolveOpen = r));
+    const view = render(
+      <StoreContext.Provider value={store}><Session openEngine={() => opening} onExit={vi.fn()} /></StoreContext.Provider>,
+    );
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.getByTestId('session').dataset.phase).toBe('done'));
+    resolveOpen(engine);
+    await waitFor(() => expect(engine.closed).toBe(true));
+    expect(engine.sent).toEqual([]);
+    expect(engine.listenerCount()).toBe(0);
+    view.unmount();
+    expect(engine.closed).toBe(true);
+  });
+
+  it('ignores a session-ready that arrives after the session ended; any key still exits once', async () => {
+    const { engine, root, onExit } = await start(108);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await act(() => engine.emit({ type: 'session-ready', floor: -60 }));
+    expect(root.dataset.phase).toBe('done');
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(onExit).toHaveBeenCalledOnce();
+  });
+
   it('shows a quiet message and saves nothing when the microphone cannot be opened', async () => {
     const onExit = vi.fn();
     render(

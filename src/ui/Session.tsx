@@ -36,6 +36,7 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
     let wake: WakeLockSentinel | null = null;
     let timer = 0;
     let cancelled = false;
+    let closeScheduled = false;
 
     const releaseWake = () => {
       const w = wake;
@@ -64,8 +65,11 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
       setElapsed(r.secs);
       setPhase('done');
       const e = engine;
-      e?.send({ type: 'session-stop' });
-      window.setTimeout(() => void e?.close(), CHIME_TAIL_MS);
+      if (e) {
+        closeScheduled = true;
+        e.send({ type: 'session-stop' });
+        window.setTimeout(() => void e.close(), CHIME_TAIL_MS);
+      }
       releaseWake();
       if (r.count > 0) {
         void store.recordSession({ at: Date.now(), count: r.count, target: r.target, secs: r.secs, avgSecsPerChant: r.avgSecsPerChant }).catch(() => {});
@@ -109,13 +113,14 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
         }
         return;
       }
-      if (cancelled) {
+      if (cancelled || st.ended) {
         void e.close();
         return;
       }
       engine = e;
       unsub = e.on((msg) => {
         if (msg.type === 'session-ready') {
+          if (st.ended) return;
           st.begin();
           setPhase('live');
           timer = window.setInterval(() => setElapsed(st.elapsedSec()), 500);
@@ -147,9 +152,9 @@ export function Session({ openEngine, onExit }: { openEngine: OpenEngine; onExit
       document.removeEventListener('visibilitychange', onVisible);
       window.clearInterval(timer);
       unsub();
-      if (!st.ended) {
-        engine?.send({ type: 'session-stop' });
-        void engine?.close();
+      if (engine && !closeScheduled) {
+        engine.send({ type: 'session-stop' });
+        void engine.close();
       }
       releaseWake();
     };
